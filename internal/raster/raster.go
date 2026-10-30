@@ -1439,6 +1439,9 @@ func (r *renderer) image(op *scene.Op) {
 	if opacity == 0 {
 		opacity = 1
 	}
+	if opacity == 1 && r.imageUnscaled(op) {
+		return
+	}
 	radii := scene.Corners(op.Rect, op.Radii, op.Continuous)
 	box := newShape(op.Rect, radii)
 	round := hasRadii(radii)
