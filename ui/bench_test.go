@@ -5,6 +5,8 @@ import (
 	"math"
 	"testing"
 	"time"
+
+	"github.com/egoist/mygo/internal/wait"
 )
 
 // BenchmarkFrame builds, lays out, paints and renders on the CPU a whole
@@ -292,8 +294,21 @@ func TestDiffFrameAllocs(t *testing.T) {
 	both := testing.AllocsPerRun(100, s.step)
 	tt, d = diffSceneTester(false)
 	s = &sidebarScroller{tt: tt, d: d, lo: 80, hi: 120}
-	for range 100 {
+	// Font metrics and the starting position determine how many frames
+	// reach this range. Visit low-high-low to lay out every row that the
+	// measured back-and-forth scrolling will show before counting allocations.
+	ctx := wait.Context(t)
+	for phase := 0; phase < 3; {
+		if err := ctx.Err(); err != nil {
+			first, last := d.history.Visible()
+			t.Fatalf("sidebar warmup never completed rows %d..%d (phase %d, visible %d..%d): %v", s.lo, s.hi, phase, first, last, err)
+		}
 		s.step()
+		first, last := d.history.Visible()
+		if (phase == 0 || phase == 2) && first <= s.lo || phase == 1 && last >= s.hi {
+			phase++
+			t.Logf("sidebar warmup phase %d: visible rows %d..%d", phase, first, last)
+		}
 	}
 	warm := testing.AllocsPerRun(100, s.step)
 	t.Logf("allocations a frame: steady %.0f, scrolling the sidebar %.0f, with the diff %.0f, within rows laid out %.0f", steady, sidebar, both, warm)
