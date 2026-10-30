@@ -397,6 +397,8 @@ type node struct {
 	// barInset moves a scroll container's scroll bars in from its edges
 	// (ScrollbarInsets): top, right, bottom, left.
 	barInset [4]float32
+	// hiddenScrollbars masks presentation and pointer handling, not scrolling.
+	hiddenScrollbars uint32
 	// scrollBase is the offset of a List's content that its rows were
 	// placed at: placing moves them by how far the offset moved since.
 	scrollBase float64
@@ -743,6 +745,20 @@ func (e *node) MarginX(v float32) *node {
 
 // MarginY sets the top and bottom margins.
 func (e *node) MarginY(v float32) *node { e.margin[0], e.margin[2] = v, v; return e }
+
+// Scrollbars controls horizontal and vertical scroll bar visibility and pointer
+// handling without disabling wheel, keyboard or programmatic scrolling.
+// Both bars are enabled by default. This applies to scroll containers and Lists.
+func (e *node) Scrollbars(horizontal, vertical bool) *node {
+	e.hiddenScrollbars = 0
+	if !horizontal {
+		e.hiddenScrollbars |= flagScrollX
+	}
+	if !vertical {
+		e.hiddenScrollbars |= flagScrollY
+	}
+	return e
+}
 
 // ScrollbarInsets moves a scroll container's scroll bars in from its
 // edges, CSS style as Padding: the vertical bar runs from top DIPs below

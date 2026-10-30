@@ -99,7 +99,7 @@ type viewState struct {
 	o     *Options
 	doc   *parser.Document
 	ext   parser.Extensions
-	uiTh  ui.Theme
+	uiTh  themeKey
 	def   *Theme
 	th    Theme
 	paras []paraCache
@@ -195,8 +195,9 @@ var defaultOptions Options
 // theme resolves the theme of the frame.
 func (st *viewState) theme(c *ui.Context) {
 	t := c.Theme()
-	if st.def == nil || st.uiTh != *t {
-		st.uiTh = *t
+	key := defaultThemeKey(t)
+	if st.def == nil || st.uiTh != key {
+		st.uiTh = key
 		st.def = DefaultTheme(t)
 	}
 	th := resolve(st.o.Theme, st.def)

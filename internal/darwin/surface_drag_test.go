@@ -14,7 +14,8 @@ import (
 func TestDataDragFormatMappings(t *testing.T) {
 	load()
 	withPool(func() {
-		registerDataDragClasses()
+		// Other bridge tests may have registered the classes already.
+		registerClasses()
 		for _, f := range []transfer.Format{transfer.Text, transfer.HTML, transfer.PNG, transfer.URIList, transfer.FileList, "application/vnd.mygo.test+json"} {
 			typ := macType(f)
 			if got := macFormat(typ); got != f {

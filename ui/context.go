@@ -564,6 +564,8 @@ type state struct {
 	contentH         float64
 	// barInset is the element's ScrollbarInsets.
 	barInset [4]float32
+	// hiddenScrollbars masks presentation and pointer handling, not scrolling.
+	hiddenScrollbars uint32
 	// barsShown reports whether the last frame painted the element's
 	// scroll bars: they show only while it is hovered or a bar is
 	// dragged.
