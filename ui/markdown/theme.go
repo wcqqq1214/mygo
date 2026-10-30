@@ -94,6 +94,26 @@ type HeadingStyle struct {
 	Rule bool
 }
 
+// themeKey contains the window-theme inputs of DefaultTheme, including
+// editor.DefaultTheme. Keep it in sync with both when adding dependencies.
+// TooltipStyle and the other widget settings do not affect these defaults;
+// comparing only their inputs also keeps callback changes from flushing caches.
+type themeKey struct {
+	dark                                               bool
+	background, text, muted, border, accent, selection Color
+	radius, fontSize                                   float32
+	font                                               string
+}
+
+func defaultThemeKey(t *ui.Theme) themeKey {
+	return themeKey{
+		dark: t.Dark, background: t.Background, text: t.Text,
+		muted: t.TextMuted, border: t.Border, accent: t.Accent,
+		selection: t.Selection, radius: t.Radius, fontSize: t.FontSize,
+		font: t.Font,
+	}
+}
+
 // DefaultTheme returns the Markdown theme of a window's theme: its font
 // and colors, a code span tinted with its text color, code colored as the
 // code editor colors it, and the spacing of the chat apps.
