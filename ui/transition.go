@@ -32,6 +32,11 @@ type ElementTransition struct {
 	// size on the way), and its background and border colors. None set
 	// animates them all.
 	Position, Size, Colors bool
+	// ShortenColorReversals gives background and border independent CSS-style
+	// transitions, shortening an interrupted return to the previous target.
+	// It applies only to duration-based color animations without a delay; other
+	// motion keeps its usual timing. The default preserves MyGo's behavior.
+	ShortenColorReversals bool
 	// Enter, if set, is where the element comes from as it appears in a
 	// parent that the last frame showed: it starts there, and goes to its
 	// place.
@@ -170,6 +175,7 @@ type transition struct {
 	colorK                             channel
 	colorMoving, colorSet              bool
 	colorFrame                         uint64
+	colorCSS                           [2]cssColorTransition
 	// ghost is the copy of the element going, which moves from gone,
 	// where it showed as it went; opacity is its own, and turn its
 	// transform then.
@@ -184,6 +190,12 @@ type transition struct {
 	// its box in the window, from the box that one had.
 	match    [4]channel
 	matching bool
+}
+
+type cssColorTransition struct {
+	from, reverseStart Color
+	scale              float64
+	k                  channel
 }
 
 // animation returns how the transition's changes go.
@@ -805,29 +817,34 @@ func (rt *engine) animateColors(e *node, r *transition) {
 	now := rt.c.now
 	if r.colorFrame != rt.frame {
 		target := [2]Color{e.bg, e.borderC}
-		switch {
-		case !r.colorSet || r.colorFrame+1 != rt.frame:
-			// Not painted in the frame before: its colors show at once.
-			r.colorMoving = false
-		case target != r.colorTarget && rt.instant():
-			r.colorMoving = false
-		case target != r.colorTarget:
-			r.colorFrom, r.colorMoving = r.colorShown, true
-			r.colorK = channel{at: now}
-			headFor(&r.colorK, 1, r.animation(), now)
-		}
-		r.colorSet, r.colorTarget, r.colorFrame = true, target, rt.frame
-		r.colorShown = target
-		if r.colorMoving {
-			r.colorK.advance(now)
-			if !r.colorK.moving && !r.colorK.pending {
+		animation := r.animation()
+		if r.t.ShortenColorReversals && animation.Duration > 0 && animation.Delay == 0 {
+			rt.animateCSSColors(r, target, animation, now)
+		} else {
+			switch {
+			case !r.colorSet || r.colorFrame+1 != rt.frame:
+				// Not painted in the frame before: its colors show at once.
 				r.colorMoving = false
-			} else {
-				k := max(0, min(float32(r.colorK.value), 1))
-				r.colorShown = [2]Color{mixPremultiplied(r.colorFrom[0], target[0], k), mixPremultiplied(r.colorFrom[1], target[1], k)}
-				rt.animating = true
+			case target != r.colorTarget && rt.instant():
+				r.colorMoving = false
+			case target != r.colorTarget:
+				r.colorFrom, r.colorMoving = r.colorShown, true
+				r.colorK = channel{at: now}
+				headFor(&r.colorK, 1, animation, now)
+			}
+			r.colorShown = target
+			if r.colorMoving {
+				r.colorK.advance(now)
+				if !r.colorK.moving && !r.colorK.pending {
+					r.colorMoving = false
+				} else {
+					k := max(0, min(float32(r.colorK.value), 1))
+					r.colorShown = [2]Color{mixPremultiplied(r.colorFrom[0], target[0], k), mixPremultiplied(r.colorFrom[1], target[1], k)}
+					rt.animating = true
+				}
 			}
 		}
+		r.colorSet, r.colorTarget, r.colorFrame = true, target, rt.frame
 		if m := r.t.Match; m != nil {
 			if rec := rt.matched[m]; rec != nil && rec.id == e.id {
 				rec.colors = r.colorShown
@@ -835,6 +852,49 @@ func (rt *engine) animateColors(e *node, r *transition) {
 		}
 	}
 	e.bg, e.borderC = r.colorShown[0], r.colorShown[1]
+}
+
+// animateCSSColors keeps one clock per property: pressing a hovered control
+// changes its background without restarting the border's existing transition.
+func (rt *engine) animateCSSColors(r *transition, target [2]Color, animation Animation, now time.Time) {
+	r.colorMoving = false
+	for i, to := range target {
+		state := &r.colorCSS[i]
+		if !r.colorSet || r.colorFrame+1 != rt.frame || to != r.colorTarget[i] && rt.instant() {
+			*state = cssColorTransition{from: to, reverseStart: to, scale: 1}
+			r.colorShown[i] = to
+			continue
+		}
+		state.k.advance(now)
+		if state.k.moving {
+			k := max(0, min(float32(state.k.value), 1))
+			r.colorShown[i] = mixPremultiplied(state.from, r.colorTarget[i], k)
+		} else {
+			r.colorShown[i] = r.colorTarget[i]
+		}
+		if to != r.colorTarget[i] {
+			scale, start := float64(1), r.colorShown[i]
+			if state.k.moving && to == state.reverseStart {
+				// CSS Transitions §3: logical start and shortening factor
+				// account for earlier reversals, including repeated ones.
+				scale = min(1, math.Abs(state.k.value*state.scale+1-state.scale))
+				start = r.colorTarget[i]
+			}
+			state.from, state.reverseStart, state.scale = r.colorShown[i], start, scale
+			state.k = channel{at: now}
+			if to != state.from {
+				a := animation
+				// Zero Duration denotes a spring, not an immediate tween.
+				a.Duration = max(time.Nanosecond, time.Duration(float64(a.Duration)*scale))
+				headFor(&state.k, 1, a, now)
+			}
+		}
+		if state.k.moving {
+			r.colorMoving, rt.animating = true, true
+		} else {
+			r.colorShown[i] = to
+		}
+	}
 }
 
 // forgetColors shows the colors of the elements at once: a route change is

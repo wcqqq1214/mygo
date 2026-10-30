@@ -411,7 +411,7 @@ func (h *windowHost) useWide(s *scene.Scene, now time.Time) bool {
 	if !ok {
 		return false
 	}
-	if len(s.Wide) > 0 {
+	if s.HasWideColors() {
 		h.wideUntil = now.Add(wideHold)
 	}
 	if on := now.Before(h.wideUntil) && h.screenWide(); on != h.wide {

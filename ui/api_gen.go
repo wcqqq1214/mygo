@@ -4092,6 +4092,19 @@ func (_handle Element) InView() bool {
 	return _node.InView()
 }
 
+// Inert keeps the element and its children visible without pointer, keyboard,
+// or accessibility interaction. Unlike Disabled, it does not dim the content.
+// It also covers embedded web views so they cannot take native input.
+func (_handle Element) Inert(inert bool) Element {
+	_node := _handle.node()
+	if _node == nil {
+		return Element{}
+	}
+	_ctx := _node.c
+	_ = _ctx
+	return wrapElement(_node.Inert(inert))
+}
+
 // InputMethod sets whether the system's input methods compose text for the
 // element while it has the keyboard focus, as they do by default for one
 // that takes text (HandleTextInput, TextCaret). Turned off, keys type the

@@ -163,10 +163,11 @@ type engine struct {
 
 	// What the last frame laid out, for input until the next one: the
 	// focus order, with the scope of each element, and the dialog on top.
-	hits        []hit
-	focusOrder  []uint64
-	focusScopes []focusScope
-	modal       uint64
+	hits           []hit
+	focusOrder     []uint64
+	focusScopes    []focusScope
+	focusPositions []int32
+	modal          uint64
 	// modalLayer is the element at the top of the overlay holding the
 	// dialog on top, which assistive technology sees with what is above.
 	modalLayer  uint64
@@ -962,6 +963,7 @@ func (rt *engine) commit(root *node, w, h float32) {
 	rt.webPlaces = rt.webPlaces[:0]
 	rt.maxButton = Rect{}
 	rt.focusOrder, rt.focusScopes = rt.focusOrder[:0], rt.focusScopes[:0]
+	rt.focusPositions = rt.focusPositions[:0]
 	rt.modal, rt.modalLayer, rt.commitScope, rt.commitPage = 0, 0, focusScope{}, 0
 	if rt.groups == nil {
 		rt.groups = map[uint64]groupInfo{}
@@ -970,8 +972,14 @@ func (rt *engine) commit(root *node, w, h float32) {
 	rt.labels = rt.labels[:0]
 	// The window, which the inspector shares with the root.
 	full := Rect{0, 0, w, h}
+	if root.c.theme.FocusFollowsTreeOrder {
+		numberFocusTree(root, 0)
+	}
 	rt.commitElement(root, full, false)
 	rt.inkStale = false
+	if root.c.theme.FocusFollowsTreeOrder {
+		rt.orderFocusByTree()
+	}
 	rt.arrangeFocus()
 	rt.noteGroups()
 }
@@ -1088,6 +1096,7 @@ func (rt *engine) commitElement(e *node, clip Rect, hidden bool) {
 	if e.flags&flagFocusable != 0 && !e.IsDisabled() && !invisible {
 		rt.focusOrder = append(rt.focusOrder, e.id)
 		rt.focusScopes = append(rt.focusScopes, rt.commitScope)
+		rt.focusPositions = append(rt.focusPositions, e.focusPosition)
 		// Tab goes to the radio button or tab chosen; not to a toggle
 		// that is on.
 		if g := rt.commitScope.group; g != 0 && e.checked == 2 && (e.role == RoleRadio || e.role == RoleTab) {

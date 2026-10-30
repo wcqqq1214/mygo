@@ -112,7 +112,7 @@ func (e *node) spanStyle() Span {
 	}
 	// What dims the element dims its text.
 	alpha := float32(1)
-	if e.flags&flagDisabled != 0 {
+	if e.flags&flagDisabled != 0 && !e.c.theme.DisableAutoDimming {
 		alpha = 0.5
 	}
 	if e.opacitySet {

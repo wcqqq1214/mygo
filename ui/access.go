@@ -118,8 +118,19 @@ func (e *node) Mixed() *node {
 
 // Expanded tells assistive technology whether what the element opens
 // shows, as the popup of a button or the section below a header.
+// For a custom click control, an accessibility expand/collapse request
+// activates it only when the requested state differs from open.
 func (e *node) Expanded(open bool) *node {
-	e.expanded = open
+	e.expanded, e.expandable = open, true
+	if e.st != nil && e.st.expand != 0 {
+		change := (e.st.expand > 0) != open
+		e.st.expand = 0
+		if change && !e.disabled() {
+			e.st.clicks++
+			e.st.clickMods = 0
+		}
+		e.c.rt.consumed = true
+	}
 	return e
 }
 
@@ -438,7 +449,7 @@ func (rt *engine) accessDetails(e *node, n *platform.AccessNode) {
 	if n.Role == platform.RoleSlider || n.Role == platform.RoleStepper {
 		n.Actions |= platform.ActionIncrement | platform.ActionDecrement
 	}
-	if e.expandable {
+	if e.expandable && (n.Role == platform.RoleTreeItem || e.flags&flagClickable != 0) {
 		n.Actions |= platform.ActionExpand
 	}
 	if ed := e.st.editor; ed != nil && e.flags&flagEditable != 0 {

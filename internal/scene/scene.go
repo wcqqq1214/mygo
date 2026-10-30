@@ -395,6 +395,19 @@ func (s *Scene) EachCanvas(fn func(*Image)) {
 	s.eachShown(visit)
 }
 
+// HasWideColors includes nested and retained canvases as well as colors drawn
+// directly. An effect's pixels must keep their gamut through every texture.
+func (s *Scene) HasWideColors() bool {
+	if len(s.Wide) > 0 {
+		return true
+	}
+	wide := false
+	s.EachCanvas(func(c *Image) {
+		wide = wide || len(c.Scene.Wide) > 0
+	})
+	return wide
+}
+
 // eachShown calls fn with the canvases the scene's images show, and its
 // shaders read.
 func (s *Scene) eachShown(fn func(*Image)) {

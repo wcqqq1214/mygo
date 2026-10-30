@@ -207,7 +207,7 @@ func (p *Painter) element(e *node) {
 		return
 	}
 	saved := p.opacity
-	if e.flags&flagDisabled != 0 {
+	if e.flags&flagDisabled != 0 && !e.c.theme.DisableAutoDimming {
 		p.opacity *= 0.5
 	}
 	if e.opacitySet {

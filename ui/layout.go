@@ -144,6 +144,7 @@ func place(e *node, x, y float32) {
 			t.MaxX, t.MaxY = float32(mx), float32(my)
 		}
 		if s.movedIn(e.c.rt.frame) {
+			e.c.rt.dismissEngagedTooltip()
 			// What was built read the old offset, as List's rows or the
 			// app from its ScrollState: build the next frame with the new.
 			e.c.rt.animating = true
@@ -1247,11 +1248,25 @@ func layoutAbsolute(e *node) {
 // attachTo places c, a child of e whose padding box is pw×ph, attached to
 // a point of the box of the element it is a popover of (AttachTo).
 func attachTo(c, e *node, pw, ph float32) {
+	var policy *TooltipPolicy
+	if c.c.theme != nil {
+		policy = c.c.theme.TooltipPolicy
+	}
+	if policy != nil && c.role == RoleTooltip && c.popover.IsDisabled() {
+		// A caller can disable the anchor or its parent after Tooltip built.
+		c.Invisible()
+		c.c.rt.tips.shown, c.c.rt.tips.target = 0, 0
+	}
+	at, self := c.attach.anchors()
+	customTip := policy != nil && policy.PreferBelow && c.role == RoleTooltip && at == AnchorBottom && self == AnchorTop
 	var w float32
 	if v, ok := c.width.resolve(pw); ok {
 		w = c.clampW(v, pw)
 	} else {
 		w = fitWidth(c, pw, pw)
+	}
+	if customTip {
+		w = min(w, max(0, c.c.w-2*policy.ViewportInset))
 	}
 	var h float32
 	if v, ok := c.height.resolve(ph); ok {
@@ -1260,7 +1275,6 @@ func attachTo(c, e *node, pw, ph float32) {
 		h = heightAt(c, w, ph)
 	}
 	t := laidOutVisualBox(c.popover)
-	at, self := c.attach.anchors()
 	at, self = at.physical(c.rtl()), self.physical(c.rtl())
 	ax, ay := at.fractions()
 	sx, sy := self.fractions()
@@ -1269,6 +1283,15 @@ func attachTo(c, e *node, pw, ph float32) {
 	}
 	x := alongTarget(t.X, t.W, ax, sx, w, c.m(3)-c.m(1), c.c.w)
 	y := alongTarget(t.Y, t.H, ay, sy, h, c.m(0)-c.m(2), c.c.h)
+	if customTip {
+		inset := policy.ViewportInset
+		x = max(inset, min(t.X+(t.W-w)/2, c.c.w-w-inset))
+		y = t.Y + t.H + policy.Gap
+		if t.Y+t.H+h+inset > c.c.h {
+			y = t.Y - h - policy.Gap
+		}
+		y = max(inset, y)
+	}
 	dx, dy := c.relative(pw, ph)
 	ox, oy := laidOutOrigin(e)
 	c.x, c.y = x+dx-ox, y+dy-oy

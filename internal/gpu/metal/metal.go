@@ -377,6 +377,7 @@ type canvasTexture struct {
 	texture
 	drawState
 	canvas weak.Pointer[scene.Image]
+	format uint
 }
 
 // formatState is what a renderer draws into targets of a pixel format
@@ -1098,20 +1099,26 @@ func (r *Renderer) drawCanvas(cb id, c *scene.Image) error {
 		r.canvases[c.ID()] = t
 	}
 	t.lastFrame = r.frame
-	if t.tex != 0 && t.w == c.W && t.h == c.H && t.ver == c.Version() {
+	format, formatIndex := uint(pixelFormatBGRA8Unorm), 0
+	if r.cur.format == pixelFormatRGBA16Float && c.Scene.HasWideColors() {
+		format, formatIndex = pixelFormatRGBA16Float, 1
+	}
+	if t.tex != 0 && t.w == c.W && t.h == c.H && t.ver == c.Version() && t.format == format {
 		return nil
 	}
-	if t.tex == 0 || t.w != c.W || t.h != c.H {
+	if t.tex == 0 || t.w != c.W || t.h != c.H || t.format != format {
 		release(&t.tex)
-		if t.tex = r.newTexture(c.W, c.H, pixelFormatBGRA8Unorm, usageRenderTarget|usageShaderRead, nil, 0); t.tex == 0 {
+		if t.tex = r.newTexture(c.W, c.H, format, usageRenderTarget|usageShaderRead, nil, 0); t.tex == 0 {
 			return errors.New("metal: cannot create a canvas's texture")
 		}
-		t.w, t.h = c.W, c.H
+		t.w, t.h, t.format = c.W, c.H, format
 	}
-	// In BGRA8, in sRGB, whatever the frame's format.
+	// Match the frame's color handling: preserve extended RGB on wide output,
+	// and use the same mapped sRGB colors as direct drawing on sRGB output.
+	// Format is part of the cache key when a window moves between screens.
 	saved := r.cur
 	defer func() { r.cur = saved }()
-	r.cur = &r.formats[0]
+	r.cur = &r.formats[formatIndex]
 	if r.cur.pipeline == 0 {
 		if err := r.makePipelines(r.cur); err != nil {
 			return err
@@ -1119,7 +1126,7 @@ func (r *Renderer) drawCanvas(cb id, c *scene.Image) error {
 	}
 	cs := c.Scene
 	cs.Width, cs.Height = c.W, c.H
-	t.b.Wide = false
+	t.b.Wide = formatIndex == 1
 	t.b.Opaque, t.b.Classes = r.b.Opaque, r.b.Classes
 	t.b.NoCull, t.b.NoShadowSplit, t.b.NoRingSplit, t.b.NoCornerSplit = r.b.NoCull, r.b.NoShadowSplit, r.b.NoRingSplit, r.b.NoCornerSplit
 	t.b.NoClasses, t.b.GeneralClasses = r.b.NoClasses, r.b.GeneralClasses

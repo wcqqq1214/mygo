@@ -1,6 +1,38 @@
 package ui
 
-import "slices"
+import (
+	"slices"
+	"sort"
+)
+
+// Keep the scopes attached to their controls while changing only keyboard
+// traversal. Hit testing, painting and modal stacking retain their paint order.
+type focusTreeSequence struct {
+	ids       []uint64
+	scopes    []focusScope
+	positions []int32
+}
+
+func (f focusTreeSequence) Len() int           { return len(f.ids) }
+func (f focusTreeSequence) Less(i, j int) bool { return f.positions[i] < f.positions[j] }
+func (f focusTreeSequence) Swap(i, j int) {
+	f.ids[i], f.ids[j] = f.ids[j], f.ids[i]
+	f.scopes[i], f.scopes[j] = f.scopes[j], f.scopes[i]
+	f.positions[i], f.positions[j] = f.positions[j], f.positions[i]
+}
+
+func numberFocusTree(e *node, next int32) int32 {
+	e.focusPosition = next
+	next++
+	for child := e.first; child != nil; child = child.next {
+		next = numberFocusTree(child, next)
+	}
+	return next
+}
+
+func (rt *engine) orderFocusByTree() {
+	sort.Sort(focusTreeSequence{rt.focusOrder, rt.focusScopes, rt.focusPositions})
+}
 
 // Overlays scope the keyboard. A dialog (DialogBase) keeps the focus: Tab
 // moves it among the dialog's elements alone, it moves into the dialog as
