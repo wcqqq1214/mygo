@@ -452,10 +452,10 @@ func TestLayoutInputs(t *testing.T) {
 		"pose poseAnim poseSet poseM poseFade reposed ink noCull backface bg fill grad stripes borderC borderStyle radius " +
 		"shadows material effect effecting grads blur opacity opacitySet cursor paintFn styleFn paintAfterFn " +
 		"inputFn textClient caret takesText noIME copyData webView maximizeButton fit gray dismissed rotate label widget role " +
-		"checked expanded vertical tip highlighted accValue accRange hasRange accFill accStep barInset scrollBase " +
+		"checked expanded vertical tip highlighted accValue accRange hasRange accFill accStep barInset hiddenScrollbars scrollBase " +
 		"listRow rowIndex rowsOf focusGroup groupSelects segment activeDescendant nameFrom nameJoin " +
 		"setPos setSize choosesItems search description invalid followX sort level expandable " +
-		"chooseMany serial"
+		"chooseMany serial focusPosition"
 	known := map[string]bool{}
 	for _, f := range strings.Fields(read + " " + other) {
 		known[f] = true

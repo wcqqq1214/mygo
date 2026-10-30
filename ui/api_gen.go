@@ -3673,6 +3673,8 @@ func (_handle Element) Error(msg string) Element {
 
 // Expanded tells assistive technology whether what the element opens
 // shows, as the popup of a button or the section below a header.
+// For a custom click control, an accessibility expand/collapse request
+// activates it only when the requested state differs from open.
 func (_handle Element) Expanded(open bool) Element {
 	_node := _handle.node()
 	if _node == nil {
@@ -5175,6 +5177,19 @@ func (_handle Element) ScrollbarInsets(v ...float32) Element {
 	_ctx := _node.c
 	_ = _ctx
 	return wrapElement(_node.ScrollbarInsets(v...))
+}
+
+// Scrollbars controls horizontal and vertical scroll bar visibility and pointer
+// handling without disabling wheel, keyboard or programmatic scrolling.
+// Both bars are enabled by default. This applies to scroll containers and Lists.
+func (_handle Element) Scrollbars(horizontal bool, vertical bool) Element {
+	_node := _handle.node()
+	if _node == nil {
+		return Element{}
+	}
+	_ctx := _node.c
+	_ = _ctx
+	return wrapElement(_node.Scrollbars(horizontal, vertical))
 }
 
 // Selectable lets the user select and copy text by dragging, double-clicking
