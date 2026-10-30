@@ -1,11 +1,38 @@
 package ui
 
-import "runtime"
+import (
+	"runtime"
+	"time"
+)
+
+// TooltipPolicy opts into a fixed delay for both pointer and keyboard hints,
+// without the default warm-start acceleration. Nil preserves the default.
+type TooltipPolicy struct {
+	Delay          time.Duration
+	PreferBelow    bool
+	Hoverable      bool
+	DismissOnInput bool
+	Gap            float32
+	ViewportInset  float32
+}
 
 // Theme holds the colors and metrics widgets use. Change a copy of
 // LightTheme or DarkTheme and set it with Context.SetTheme.
 type Theme struct {
 	Dark bool
+	// DisableAutoDimming keeps disabled elements at full opacity. Applications
+	// opting in must provide their own disabled colors; input, focus and
+	// accessibility still use the element's disabled state.
+	DisableAutoDimming bool
+	// FocusFollowsTreeOrder keeps Tab traversal in element tree order,
+	// including absolute controls painted above later siblings. Popovers still
+	// follow their anchors and dialogs still contain focus. False preserves the
+	// default paint-order traversal.
+	FocusFollowsTreeOrder bool
+	TooltipPolicy         *TooltipPolicy
+	// TooltipStyle replaces the default Element.Tooltip appearance. Content
+	// and anchor placement are supplied by the tooltip implementation.
+	TooltipStyle func(Element)
 	// Background fills the window.
 	Background Color
 	// Surface is the face of buttons, inputs and other controls;
