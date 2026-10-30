@@ -3933,6 +3933,8 @@ func (_handle Element) Error(msg string) Element {
 
 // Expanded tells assistive technology whether what the element opens
 // shows, as the popup of a button or the section below a header.
+// For a custom click control, an accessibility expand/collapse request
+// activates it only when the requested state differs from open.
 func (_handle Element) Expanded(open bool) Element {
 	_node := _handle.node()
 	if _node == nil {
@@ -5594,6 +5596,21 @@ func (_handle Element) ScrollWith(scroller Element) Element {
 	_ctx := _node.c
 	_ = _ctx
 	return wrapElement(_node.ScrollWith(scroller.nodeFor(_ctx.rt)))
+}
+
+// ScrollbarAxes shows or hides the horizontal and vertical indicators of this
+// scroll container on their own, with their pointer hit targets, as
+// Scrollbars does for both. Hiding the axis being dragged ends the drag.
+// Wheel, keyboard and programmatic scrolling remain on both axes, and
+// Scrollbars(false) hides both whatever this says.
+func (_handle Element) ScrollbarAxes(horizontal bool, vertical bool) Element {
+	_node := _handle.node()
+	if _node == nil {
+		return Element{}
+	}
+	_ctx := _node.c
+	_ = _ctx
+	return wrapElement(_node.ScrollbarAxes(horizontal, vertical))
 }
 
 // ScrollbarInsets moves a scroll container's scroll bars in from its

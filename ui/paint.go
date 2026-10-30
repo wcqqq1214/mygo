@@ -1137,7 +1137,7 @@ func (p *Painter) scrollbars(e *node) {
 		x = rescale(x, e.contentW-float64(e.w), w-float64(e.w))
 		y = rescale(y, e.contentH-float64(e.h), h-float64(e.h))
 	}
-	g := scrollBars(Rect{e.x, e.y, e.w, e.h}, e.barInset, float32(w), float32(h), float32(x), float32(y), e.flags, theme.scrollbarWidth(), e.rtl())
+	g := scrollBars(Rect{e.x, e.y, e.w, e.h}, e.barInset, float32(w), float32(h), float32(x), float32(y), e.flags&^e.hiddenScrollbars, theme.scrollbarWidth(), e.rtl())
 	if g.vertical {
 		p.scrollThumbFill(g.v, false, dragging && !rt.scrollDrag.horizontal, color)
 	}

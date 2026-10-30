@@ -416,6 +416,9 @@ type node struct {
 	// barInset moves a scroll container's scroll bars in from its edges
 	// (ScrollbarInsets): top, right, bottom, left.
 	barInset [4]float32
+	// hiddenScrollbars masks the axes whose bars ScrollbarAxes hides:
+	// presentation and pointer handling, not scrolling.
+	hiddenScrollbars uint32
 	// scrollBase is the offset of a List's content that its rows were
 	// placed at: placing moves them by how far the offset moved since.
 	scrollBase float64
@@ -823,6 +826,22 @@ func (e *node) ScrollbarInsets(v ...float32) *node { e.barInset = edges(v); retu
 // It applies to Scroll, ScrollHorizontal, ScrollBoth and List, not the internal
 // indicators of custom controls such as a code editor, and is not inherited.
 func (e *node) Scrollbars(visible bool) *node { e.hideScrollbars = !visible; return e }
+
+// ScrollbarAxes shows or hides the horizontal and vertical indicators of this
+// scroll container on their own, with their pointer hit targets, as
+// Scrollbars does for both. Hiding the axis being dragged ends the drag.
+// Wheel, keyboard and programmatic scrolling remain on both axes, and
+// Scrollbars(false) hides both whatever this says.
+func (e *node) ScrollbarAxes(horizontal, vertical bool) *node {
+	e.hiddenScrollbars = 0
+	if !horizontal {
+		e.hiddenScrollbars |= flagScrollX
+	}
+	if !vertical {
+		e.hiddenScrollbars |= flagScrollY
+	}
+	return e
+}
 
 // Width sets the width in DIPs.
 func (e *node) Width(v float32) *node { e.width = px(v); return e }

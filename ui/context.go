@@ -643,6 +643,8 @@ type state struct {
 	// of its scroll bars, its theme's ScrollbarWidth.
 	barInset [4]float32
 	barWidth float32
+	// hiddenScrollbars is the element's ScrollbarAxes mask.
+	hiddenScrollbars uint32
 	// barsShown reports whether the last frame painted the element's
 	// scroll bars: they show only while it is hovered or a bar is
 	// dragged.
