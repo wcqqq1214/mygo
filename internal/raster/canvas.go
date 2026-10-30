@@ -23,8 +23,10 @@ func drawCanvases(s *scene.Scene) {
 			c.Pix = make([]byte, 4*c.W*c.H)
 		}
 		// From BGRA to the RGBA of images.
-		for i := 0; i+3 < len(img.Pix); i += 4 {
-			c.Pix[i], c.Pix[i+1], c.Pix[i+2], c.Pix[i+3] = img.Pix[i+2], img.Pix[i+1], img.Pix[i], img.Pix[i+3]
+		from, to := img.Pix, c.Pix
+		for i := 0; i+3 < len(from); i += 4 {
+			s, d := from[i:i+4], to[i:i+4]
+			d[0], d[1], d[2], d[3] = s[2], s[1], s[0], s[3]
 		}
 		c.PixVersion = c.Version()
 	})
