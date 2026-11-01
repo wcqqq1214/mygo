@@ -6,6 +6,8 @@ import (
 	"slices"
 	"testing"
 
+	"github.com/ebitengine/purego/objc"
+
 	"github.com/egoist/mygo/internal/platform"
 )
 
@@ -16,7 +18,11 @@ func TestAccessibilityExpansionBridge(t *testing.T) {
 	backend := New()
 	theBackend = backend
 	defer func() { theBackend = previous }()
-	registerClasses()
+	// Register only this class: registerClasses defines MyGoWebView as a
+	// WKWebView, which other bridge tests replace with a plain NSView.
+	if id(objc.GetClass("MyGoAccessibilityElement")) == 0 {
+		registerAccessClass()
+	}
 	withPool(func() {
 		obj := send(send(class("MyGoAccessibilityElement"), "alloc"), "init")
 		defer release(obj)
