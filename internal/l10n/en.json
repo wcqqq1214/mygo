@@ -36,6 +36,10 @@
   "@find": {
     "description": "Labels the bar that searches text, and is what its empty field shows."
   },
+  "searching": "Searching…",
+  "@searching": {
+    "description": "Status of a find bar while asynchronous search is running."
+  },
   "search": "Search",
   "@search": {
     "description": "What an empty search field shows."

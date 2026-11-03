@@ -9,6 +9,7 @@
   "delete": "削除",
   "selectAll": "すべてを選択",
   "find": "検索",
+  "searching": "検索中…",
   "search": "検索",
   "clear": "消去",
   "removeToken": "{token}を削除",
