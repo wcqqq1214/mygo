@@ -21,6 +21,7 @@ func TestVibrancy(t *testing.T) {
 	if alpha(100, 600) != 0 || alpha(600, 600) != 255 {
 		t.Errorf("over the material, the sidebar's alpha is %d and the pane's %d; want 0 and 255", alpha(100, 600), alpha(600, 600))
 	}
+	tt.Scroll(100, 500, 0, 240) // bring the Windows 11 materials into view
 	if err := tt.Click("Mica"); err != nil {
 		t.Fatal(err)
 	}
