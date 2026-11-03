@@ -758,6 +758,26 @@ func (s *System) overLayoutBudget(n int) bool {
 		s.layoutBytes+n > maxLayoutBytes && s.oldest != nil && s.frame-s.oldest.used >= liveLayoutFrames
 }
 
+// MemoryCost estimates retained layout data and reserves lazy selection buffers.
+// Shared fonts, glyph atlases and platform text-engine caches are excluded.
+func (l *Layout) MemoryCost() int {
+	p := l.Params
+	n := int(unsafe.Sizeof(cached{})+unsafe.Sizeof(p)) + len(p.Text) + len(p.Spans) + len(p.Ellipsis) + len(p.Style.Family) + len(p.Style.Features) + len(p.Style.Lang)
+	n += cap(l.Runes) * int(unsafe.Sizeof(rune(0)))
+	if cap(l.Lines) > 1 {
+		n += cap(l.Lines) * int(unsafe.Sizeof(Line{}))
+	}
+	n += 2 * (len(l.Runes) + 1) * int(unsafe.Sizeof(int(0)))
+	for i := range l.Lines {
+		line := &l.Lines[i]
+		n += cap(line.Glyphs) * int(unsafe.Sizeof(Glyph{}))
+		boundaries := line.End - line.Start + 1
+		n += 4 * boundaries * int(unsafe.Sizeof(caretStop{}))
+		n += 3 * boundaries * int(unsafe.Sizeof(float32(0)))
+	}
+	return n
+}
+
 func layoutBytes(c *cached) int {
 	l, p := &c.layout, c.layout.Params
 	n := int(unsafe.Sizeof(*c)+unsafe.Sizeof(p)) + len(p.Text) + len(p.Spans) + len(p.Ellipsis) + len(p.Style.Family) + len(p.Style.Features) + len(p.Style.Lang)

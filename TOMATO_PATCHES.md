@@ -17,6 +17,17 @@ preserved without rewriting history.
 
 Each entry lists its upstream status at v0.7.4.
 
+- **Pending find feedback.** Native `FindBar` accepts optional
+  `FindBarOptions{Pending: true}`. Pending work displays a localized searching
+  status, blocks match navigation and keeps typing, Escape and Done available.
+  Existing calls without options retain their behavior.
+- **Retained layout accounting.** `TextLayout.MemoryCost()` estimates owned Go
+  layout data for cache admission, including a conservative reservation for
+  lazy caret geometry. Shared fonts, glyph atlases and platform caches are
+  excluded; it is not process RSS. Strings are charged by logical length, so
+  consumers with strict retention budgets must own substring storage. Estimation
+  is safe alongside geometry calls.
+
 - **Inert subtrees.** `ui/element.go` adds `Element.Inert(bool)` using the existing
   inert subtree mechanism; `ui/api_gen.go` is regenerated with `go generate ./ui`.
   Read-only SVG web views remain visible but cannot receive pointer, keyboard,

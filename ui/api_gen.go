@@ -1219,14 +1219,15 @@ func Fieldset(c *Context, legend string, fn func()) Element {
 // the bar. The app finds: it counts the matches of *query and shows match
 // *current, which Changed reports moving. Assistive technology hears the
 // count as it changes. While closed, it returns an element showing
-// nothing.
-func FindBar(c *Context, open *bool, query *string, matches int, current *int) Element {
+// nothing. Pending in the optional settings replaces the count with a searching
+// status and disables match navigation while leaving editing and closing enabled.
+func FindBar(c *Context, open *bool, query *string, matches int, current *int, options ...FindBarOptions) Element {
 	_ctx := c.build()
 	if _ctx == nil {
 		return Element{}
 	}
 	_ctx.rt.beginBuild()
-	_e := coreFindBar(_ctx, open, query, matches, current)
+	_e := coreFindBar(_ctx, open, query, matches, current, options...)
 	_ctx.rt.endBuild()
 	return wrapElement(_e)
 }
