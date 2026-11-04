@@ -166,3 +166,31 @@ func TestNumberInputShowsTheValueAfterEnterAndWhenTheAppSetsIt(t *testing.T) {
 		t.Fatalf("a value the app set while focused shows %q with value %v", got, value)
 	}
 }
+
+func TestNumberInputKeepsSignedDeltaButtonSemantics(t *testing.T) {
+	for _, test := range []struct {
+		step, value float64
+		labels      [2]string
+		disabled    [2]bool
+	}{
+		{1, 0, [2]string{"Decrease", "Increase"}, [2]bool{true, false}},
+		{-1, 0, [2]string{"Increase", "Decrease"}, [2]bool{false, true}},
+		{0, 0, [2]string{"Decrease", "Decrease"}, [2]bool{false, false}},
+	} {
+		value := test.value
+		tt := NewTester(func(c *Context) { NumberInput(c, &value, 0, 10, test.step) }, 400, 100)
+		found := 0
+		for _, node := range tt.Accessibility() {
+			if node.Role == RoleButton {
+				if found >= 2 || node.Label != test.labels[found] || node.Disabled != test.disabled[found] {
+					t.Fatalf("step %v button %d: %+v", test.step, found, node)
+				}
+				found++
+			}
+		}
+		if found != 2 {
+			t.Fatalf("step %v found %d buttons", test.step, found)
+		}
+		tt.rt.close()
+	}
+}

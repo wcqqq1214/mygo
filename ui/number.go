@@ -68,7 +68,8 @@ func coreNumberInput(c *context, value *float64, lo, hi, step float64) *node {
 		in.hasRange, in.accRange, in.accStep = true, [3]float64{lo, hi, *value}, step
 	}, func(btn *node, in *node, direction int) {
 		delta := float64(direction) * step
-		btn.Disabled(direction < 0 && *value <= lo || direction > 0 && *value >= hi)
+		btn.Label(map[bool]string{true: "Increase", false: "Decrease"}[delta > 0])
+		btn.Disabled(delta < 0 && *value <= lo || delta > 0 && *value >= hi)
 		btn.afterInput(func() {
 			if btn.Clicked() {
 				set(*value + delta)
