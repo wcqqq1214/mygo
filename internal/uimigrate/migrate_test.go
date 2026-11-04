@@ -224,3 +224,20 @@ func check(c *ui.Context){w,_:=newWindow();if w.element==nil{w.element=makeEleme
 		}
 	}
 }
+
+func TestNumberInputPartsMigrationKeepsLifetimeAdvice(t *testing.T) {
+	result, err := File("app.go", []byte(`package app
+import native "github.com/egoist/mygo/ui"
+type app struct { parts *native.NumberInputParts }
+func clear() *native.NumberInputParts { return nil }
+`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(result.Source), "parts native.NumberInputParts") || !strings.Contains(string(result.Source), "return native.NumberInputParts{}") {
+		t.Fatalf("parts migration: %s", result.Source)
+	}
+	if len(result.Notes) != 1 || !strings.Contains(result.Notes[0], "stored NumberInputParts") {
+		t.Fatalf("missing lifetime advice: %q", result.Notes)
+	}
+}

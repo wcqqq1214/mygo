@@ -215,6 +215,9 @@ type layoutStyle struct {
 	row                  bool
 	wrap                 bool
 	reverse, wrapReverse bool
+	// growWithParentWidth lets a compound control's input fill a width
+	// the app sets, while keeping its natural size when merely stretched.
+	growWithParentWidth bool
 	// dir is the element's direction (dirRTL, dirSet), and logical which
 	// of its horizontal edges were set by their start or end
 	// (direction.go).

@@ -16,7 +16,7 @@ import (
 )
 
 var parts = map[string]string{
-	"TabsParts": "tabsParts", "SelectParts": "selectParts", "ComboboxParts": "comboboxParts",
+	"NumberInputParts": "numberInputParts", "TabsParts": "tabsParts", "SelectParts": "selectParts", "ComboboxParts": "comboboxParts",
 	"CollapsibleParts": "collapsibleParts", "SegmentedParts": "segmentedParts", "ToastParts": "toastParts",
 }
 

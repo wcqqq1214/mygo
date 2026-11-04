@@ -53,3 +53,34 @@ func view(c *native.Context){
 		}
 	}
 }
+
+func TestNumberInputPartsCannotEscapeBuild(t *testing.T) {
+	ui := types.NewPackage(uiPath, "ui")
+	obj := types.NewTypeName(token.NoPos, ui, "NumberInputParts", nil)
+	types.NewNamed(obj, types.NewStruct(nil, nil), nil)
+	ui.Scope().Insert(obj)
+	ui.MarkComplete()
+	fs := token.NewFileSet()
+	f, err := parser.ParseFile(fs, "app.go", `package app
+import native "github.com/egoist/mygo/ui"
+type Parts = native.NumberInputParts
+type app struct { draft Parts }
+var saved [1]Parts
+func view(parts native.NumberInputParts) {
+ go func(){ _=parts }()
+ go func(p native.NumberInputParts){}(parts)
+}
+`, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	info := &types.Info{Defs: map[*ast.Ident]types.Object{}, Uses: map[*ast.Ident]types.Object{}, Types: map[ast.Expr]types.TypeAndValue{}}
+	pkg, err := (&types.Config{Importer: testImporter{ui}}).Check("example/app", fs, []*ast.File{f}, info)
+	if err != nil {
+		t.Fatal(err)
+	}
+	diagnostics := Analyze(fs, []*ast.File{f}, pkg, info)
+	if len(diagnostics) != 4 {
+		t.Fatalf("got %d diagnostics: %#v", len(diagnostics), diagnostics)
+	}
+}

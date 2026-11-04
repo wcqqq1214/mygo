@@ -200,7 +200,7 @@ func (m *migration) uiType(e ast.Expr) string {
 				return "Context"
 			case "Element":
 				return "Element"
-			case "SelectParts", "ComboboxParts", "TabsParts", "CollapsibleParts", "SegmentedParts", "ToastParts":
+			case "SelectParts", "ComboboxParts", "NumberInputParts", "TabsParts", "CollapsibleParts", "SegmentedParts", "ToastParts":
 				return s.Sel.Name
 			}
 		}
