@@ -28,6 +28,13 @@ Each entry lists its upstream status at v0.7.4.
   consumers with strict retention budgets must own substring storage. Estimation
   is safe alongside geometry calls.
 
+- **Number input submit and width.** `ui/number.go` makes `NumberInput` report
+  Enter in its input through `Submitted` and `OnSubmit`, forwarded to the
+  control as `Combobox` does, and lets the input grow into an explicit `Width`
+  so the buttons stay at the end. Without a `Width` the layout is unchanged.
+  Upstream's `NumberInput` has neither, so an app cannot apply a typed value
+  on Enter. `ui/number_submit_test.go` covers Enter, typing, stepping, button
+  clicks and repeated frames, and both widths.
 - **Inert subtrees.** `ui/element.go` adds `Element.Inert(bool)` using the existing
   inert subtree mechanism; `ui/api_gen.go` is regenerated with `go generate ./ui`.
   Read-only SVG web views remain visible but cannot receive pointer, keyboard,

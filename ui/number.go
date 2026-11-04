@@ -10,7 +10,8 @@ import (
 // and hi, which the arrows Up and Down, and the buttons beside it, step
 // by step. What is typed applies as soon as it is a number in range, and
 // shows rounded to the decimals of step once the input loses the focus.
-// Changed reports a new value.
+// Changed reports a new value, and Submitted Enter in the input. A Width
+// wider than the natural one is taken by the input.
 //
 //	ui.NumberInput(c, &app.copies, 1, 99, 1)
 func coreNumberInput(c *context, value *float64, lo, hi, step float64) *node {
@@ -36,13 +37,16 @@ func coreNumberInput(c *context, value *float64, lo, hi, step float64) *node {
 		}
 	}
 	row.Children(func() {
-		in := coreTextInput(c, text).Width(t.Space(20))
+		in := coreTextInput(c, text).Width(t.Space(20)).Grow(1)
 		in.widget = "NumberInput"
 		in.afterInput(func() {
 			if in.Changed() {
 				if v, err := strconv.ParseFloat(strings.TrimSpace(*text), 64); err == nil && v >= lo && v <= hi {
 					set(v)
 				}
+			}
+			if in.Submitted() {
+				row.st.markSubmitted()
 			}
 			if in.Shortcut(0, KeyUp) {
 				set(*value + step)
