@@ -622,7 +622,7 @@ type flexItem struct {
 	// is, and laidOut is set on those of a row, laid out to find theirs.
 	baseline                float32
 	frozen, byBase, laidOut bool
-	line                    int
+	factor                  float32 // grow, or shrink scaled by the inner base size
 }
 
 type flexLine struct {
@@ -765,7 +765,6 @@ func flexLayout(e *node, cw, ch float32, commit bool) (usedW, usedH float32) {
 				cur.main += gap
 			}
 			cur.main += outer
-			items[i].line = len(scratch.lines) - firstLine
 		}
 		cur.end = len(items)
 		scratch.lines = append(scratch.lines, cur)
@@ -1097,11 +1096,11 @@ func resolveFlexible(its []flexItem, space float32, growing bool) {
 	for i := range its {
 		it := &its[i]
 		it.frozen = false
-		factor := it.e.flexGrow()
+		it.factor = it.e.flexGrow()
 		if !growing {
-			factor = it.e.shrink * it.inner()
+			it.factor = it.e.shrink * it.inner()
 		}
-		if factor == 0 || (growing && it.base > it.hyp) || (!growing && it.base < it.hyp) {
+		if it.factor == 0 || (growing && it.base > it.hyp) || (!growing && it.base < it.hyp) {
 			it.main, it.frozen = it.hyp, true
 		}
 	}
@@ -1113,11 +1112,7 @@ func resolveFlexible(its []flexItem, space float32, growing bool) {
 				free -= it.main + it.marginMain
 			} else {
 				free -= it.base + it.marginMain
-				if growing {
-					sum += it.e.flexGrow()
-				} else {
-					sum += it.e.shrink * it.inner()
-				}
+				sum += it.factor
 			}
 		}
 		if sum == 0 {
@@ -1130,7 +1125,7 @@ func resolveFlexible(its []flexItem, space float32, growing bool) {
 				continue
 			}
 			if growing {
-				it.main = it.base + free*it.e.flexGrow()/sum
+				it.main = it.base + free*it.factor/sum
 			} else {
 				it.main = it.base + free*it.e.shrink*it.inner()/sum
 			}
