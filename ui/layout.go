@@ -36,6 +36,13 @@ func (e *node) marginY() float32 { return e.m(0) + e.m(2) }
 
 func (e *node) scrolls() bool { return e.flags&(flagScrollX|flagScrollY) != 0 }
 
+func (e *node) flexGrow() float32 {
+	if e.growWithParentWidth && (e.parent == nil || e.parent.width.u == unitAuto) {
+		return 0
+	}
+	return e.grow
+}
+
 // clampW and clampH apply the min and max sizes.
 func (e *node) clampW(w, cbW float32) float32 {
 	if v, ok := e.maxW.resolve(base(cbW)); ok {
@@ -395,7 +402,7 @@ func measureIntrinsic(e *node, maxContent bool) float32 {
 				// Neither goes below its minimum.
 				if b, ok := ch.basis.resolve(-1); ok {
 					b = ch.clampW(b, inf)
-					if ch.grow == 0 {
+					if ch.flexGrow() == 0 {
 						cw = max(min(cw, b), autoMinWidth(ch))
 					}
 					if ch.shrink == 0 {
@@ -723,7 +730,7 @@ func flexLayout(e *node, cw, ch float32, commit bool) (usedW, usedH float32) {
 			}
 			if v, ok := c.minH.resolve(base(ch)); ok {
 				it.minMain = v
-			} else if !c.scrolls() && c.flags&flagClipY == 0 && c.grow == 0 {
+			} else if !c.scrolls() && c.flags&flagClipY == 0 && c.flexGrow() == 0 {
 				it.minMain = min(heightAt(c, crossOf(c, cw, align, e.wrap), inf), it.maxMain)
 				if v, ok := c.height.resolve(base(ch)); ok {
 					it.minMain = min(it.minMain, v)
@@ -1090,7 +1097,7 @@ func resolveFlexible(its []flexItem, space float32, growing bool) {
 	for i := range its {
 		it := &its[i]
 		it.frozen = false
-		factor := it.e.grow
+		factor := it.e.flexGrow()
 		if !growing {
 			factor = it.e.shrink * it.inner()
 		}
@@ -1107,7 +1114,7 @@ func resolveFlexible(its []flexItem, space float32, growing bool) {
 			} else {
 				free -= it.base + it.marginMain
 				if growing {
-					sum += it.e.grow
+					sum += it.e.flexGrow()
 				} else {
 					sum += it.e.shrink * it.inner()
 				}
@@ -1123,7 +1130,7 @@ func resolveFlexible(its []flexItem, space float32, growing bool) {
 				continue
 			}
 			if growing {
-				it.main = it.base + free*it.e.grow/sum
+				it.main = it.base + free*it.e.flexGrow()/sum
 			} else {
 				it.main = it.base + free*it.e.shrink*it.inner()/sum
 			}

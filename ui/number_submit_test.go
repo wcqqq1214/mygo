@@ -40,10 +40,10 @@ func TestNumberInputReportsSubmitOnlyForEnter(t *testing.T) {
 }
 
 func TestNumberInputFillsAnExplicitWidthAndKeepsItsNaturalWidth(t *testing.T) {
-	layout := func(width float32) (field, input, increase Rect) {
+	layout := func(width float32, align Align) (field, input, increase Rect) {
 		value := 5.0
 		tt := NewTester(func(c *Context) {
-			Column(c).Padding(10).AlignItems(Start).Children(func() {
+			Column(c).Padding(10).AlignItems(align).Children(func() {
 				number := NumberInput(c, &value, 0, 10, 1).Label("Count")
 				if width > 0 {
 					number.Width(width)
@@ -56,13 +56,64 @@ func TestNumberInputFillsAnExplicitWidthAndKeepsItsNaturalWidth(t *testing.T) {
 		increase, _ = tt.Find("Increase")
 		return field, Rect{X: field.X, W: decrease.X - field.X}, increase
 	}
-	field, input, increase := layout(0)
+	field, input, increase := layout(0, Start)
 	if edge := increase.X + increase.W; edge < field.X+field.W-0.5 || edge > field.X+field.W+0.5 || input.W < 80 || input.W > 90 {
 		t.Fatalf("natural layout changed: field=%v input=%v increase=%v", field, input, increase)
 	}
-	field, input, increase = layout(248)
-	if field.W != 248 || increase.X+increase.W < field.X+field.W-0.5 || increase.X+increase.W > field.X+field.W+0.5 || input.W <= 90 {
-		t.Fatalf("explicit width not filled: field=%v input=%v increase=%v", field, input, increase)
+	naturalInput, naturalIncrease := input.W, increase.X-field.X
+	field, input, increase = layout(0, Stretch)
+	if input.W != naturalInput || increase.X-field.X != naturalIncrease {
+		t.Fatalf("stretch without Width changed the children: field=%v input=%v increase=%v; natural input=%v increase offset=%v", field, input, increase, naturalInput, naturalIncrease)
+	}
+	for _, align := range []Align{Start, Stretch} {
+		field, input, increase = layout(248, align)
+		if field.W != 248 || increase.X+increase.W < field.X+field.W-0.5 || increase.X+increase.W > field.X+field.W+0.5 || input.W <= 90 {
+			t.Fatalf("explicit width not filled with alignment %v: field=%v input=%v increase=%v", align, field, input, increase)
+		}
+	}
+}
+
+func TestNumberInputWidthOptionsAndRemovingWidth(t *testing.T) {
+	value := 5.0
+	var size func(Element) Element
+	tt := NewTester(func(c *Context) {
+		Column(c).Padding(10).Children(func() {
+			number := NumberInput(c, &value, 0, 10, 1).Label("Count")
+			if size != nil {
+				size(number)
+			}
+		})
+	}, 400, 100)
+	tt.Frame()
+	naturalDecrease, _ := tt.Find("Decrease")
+	naturalIncrease, _ := tt.Find("Increase")
+	for _, option := range []struct {
+		name  string
+		apply func(Element) Element
+		width float32
+	}{
+		{"Width", func(e Element) Element { return e.Width(248) }, 248},
+		{"Size", func(e Element) Element { return e.Size(248, 34) }, 248},
+		{"WidthPercent", func(e Element) Element { return e.WidthPercent(50) }, 190},
+		{"FillWidth", func(e Element) Element { return e.FillWidth() }, 380},
+		{"Fill", func(e Element) Element { return e.Fill() }, 380},
+	} {
+		t.Run(option.name, func(t *testing.T) {
+			size = option.apply
+			tt.Frame()
+			field, _ := tt.Find("Count")
+			increase, _ := tt.Find("Increase")
+			if field.W != option.width || increase.X+increase.W != field.X+field.W {
+				t.Fatalf("width option not filled: field=%v increase=%v", field, increase)
+			}
+			size = nil
+			tt.Frame()
+			decrease, _ := tt.Find("Decrease")
+			increase, _ = tt.Find("Increase")
+			if decrease != naturalDecrease || increase != naturalIncrease {
+				t.Fatalf("removing width changed natural buttons: decrease=%v increase=%v; want %v and %v", decrease, increase, naturalDecrease, naturalIncrease)
+			}
+		})
 	}
 }
 
