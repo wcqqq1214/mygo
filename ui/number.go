@@ -40,7 +40,9 @@ func coreNumberInput(c *context, value *float64, lo, hi, step float64) *node {
 		}
 	}
 	row.Children(func() {
-		in := coreTextInput(c, text).Width(t.Space(20)).Grow(1).Basis(t.Space(20))
+		in := coreTextInput(c, text).Width(t.Space(20))
+		// Keep the automatic basis so Column uses the input's height.
+		in.grow = 1
 		in.growWithParentWidth = true
 		in.widget = "NumberInput"
 		in.afterInput(func() {
