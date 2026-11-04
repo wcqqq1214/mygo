@@ -9,9 +9,11 @@ import (
 // NumberInput creates a text input editing *value as a number between lo
 // and hi, which the arrows Up and Down, and the buttons beside it, step
 // by step. What is typed applies as soon as it is a number in range, and
-// shows rounded to the decimals of step once the input loses the focus.
-// Changed reports a new value, and Submitted Enter in the input. A Width
-// wider than the natural one is taken by the input.
+// shows rounded to the decimals of step once the input loses the focus or
+// Enter is pressed. Changed reports a new value, and Submitted Enter in the
+// input. A Width
+// wider than the natural one is taken by the input. A value the app sets
+// replaces what was typed, as in a DecimalInput.
 //
 //	ui.NumberInput(c, &app.copies, 1, 99, 1)
 func coreNumberInput(c *context, value *float64, lo, hi, step float64) *node {
@@ -24,6 +26,7 @@ func coreNumberInput(c *context, value *float64, lo, hi, step float64) *node {
 	}
 	format := func(v float64) string { return strconv.FormatFloat(v, 'f', decimals, 64) }
 	text := coreLocal(row, "text", func() string { return format(*value) })
+	shown := coreLocal(row, "shown", func() float64 { return *value })
 	set := func(v float64) {
 		v = math.Max(lo, math.Min(hi, v))
 		if decimals >= 0 {
@@ -31,7 +34,7 @@ func coreNumberInput(c *context, value *float64, lo, hi, step float64) *node {
 			v = math.Round(v*p) / p
 		}
 		if v != *value {
-			*value = v
+			*value, *shown = v, v
 			row.st.markChanged()
 			c.rt.consumed = true
 		}
@@ -40,6 +43,10 @@ func coreNumberInput(c *context, value *float64, lo, hi, step float64) *node {
 		in := coreTextInput(c, text).Width(t.Space(20)).Grow(1)
 		in.widget = "NumberInput"
 		in.afterInput(func() {
+			if *value != *shown {
+				*shown, *text = *value, format(*value)
+				c.rt.consumed = true
+			}
 			if in.Changed() {
 				if v, err := strconv.ParseFloat(strings.TrimSpace(*text), 64); err == nil && v >= lo && v <= hi {
 					set(v)
@@ -47,6 +54,7 @@ func coreNumberInput(c *context, value *float64, lo, hi, step float64) *node {
 			}
 			if in.Submitted() {
 				row.st.markSubmitted()
+				*text = format(*value)
 			}
 			if in.Shortcut(0, KeyUp) {
 				set(*value + step)

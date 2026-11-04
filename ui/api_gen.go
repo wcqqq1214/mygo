@@ -1442,9 +1442,11 @@ func NewTester(view func(c *Context), width int, height int) *Tester {
 // NumberInput creates a text input editing *value as a number between lo
 // and hi, which the arrows Up and Down, and the buttons beside it, step
 // by step. What is typed applies as soon as it is a number in range, and
-// shows rounded to the decimals of step once the input loses the focus.
-// Changed reports a new value, and Submitted Enter in the input. A Width
-// wider than the natural one is taken by the input.
+// shows rounded to the decimals of step once the input loses the focus or
+// Enter is pressed. Changed reports a new value, and Submitted Enter in the
+// input. A Width
+// wider than the natural one is taken by the input. A value the app sets
+// replaces what was typed, as in a DecimalInput.
 //
 //	ui.NumberInput(c, &app.copies, 1, 99, 1)
 func NumberInput(c *Context, value *float64, lo float64, hi float64, step float64) Element {

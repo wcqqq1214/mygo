@@ -65,3 +65,53 @@ func TestNumberInputFillsAnExplicitWidthAndKeepsItsNaturalWidth(t *testing.T) {
 		t.Fatalf("explicit width not filled: field=%v input=%v increase=%v", field, input, increase)
 	}
 }
+
+func numberText(t *testing.T, tt *Tester) string {
+	t.Helper()
+	for _, node := range tt.Accessibility() {
+		if node.Role == RoleTextField {
+			return node.Value
+		}
+	}
+	t.Fatal("no number input")
+	return ""
+}
+
+func TestNumberInputShowsTheValueAfterEnterAndWhenTheAppSetsIt(t *testing.T) {
+	value := 5.0
+	var clamp bool
+	tt := NewTester(func(c *Context) {
+		Column(c).Padding(10).AlignItems(Start).Children(func() {
+			NumberInput(c, &value, 0, 1000, 1).Label("Count").OnSubmit(func() {
+				if clamp {
+					value = min(value, 10)
+				}
+			})
+		})
+	}, 400, 100)
+	tt.Frame()
+	field, _ := tt.Find("Count")
+	tt.ClickAt(field.X+20, field.Y+field.H/2)
+	tt.Key(Cmd, KeyA)
+	tt.Type("abc")
+	if got := numberText(t, tt); got != "abc" {
+		t.Fatalf("typing replaced the text: %q", got)
+	}
+	tt.Key(0, KeyEnter)
+	tt.Frame()
+	if got := numberText(t, tt); got != "5" || value != 5 {
+		t.Fatalf("Enter on text that is not a number shows %q with value %v", got, value)
+	}
+	clamp = true
+	tt.Key(Cmd, KeyA)
+	tt.Type("40")
+	if got := numberText(t, tt); got != "40" || value != 40 {
+		t.Fatalf("typed 40 shows %q with value %v", got, value)
+	}
+	tt.Key(0, KeyEnter)
+	tt.Frame()
+	tt.Frame()
+	if got := numberText(t, tt); got != "10" || value != 10 {
+		t.Fatalf("a value the app set while focused shows %q with value %v", got, value)
+	}
+}
