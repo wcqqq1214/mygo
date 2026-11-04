@@ -100,7 +100,7 @@ func transient(t types.Type) bool {
 			return false
 		}
 		switch object.Name() {
-		case "Element", "Context", "TabsParts", "SelectParts", "ComboboxParts", "CollapsibleParts", "SegmentedParts", "ToastParts", "ListRow":
+		case "Element", "Context", "TabsParts", "SelectParts", "ComboboxParts", "NumberInputParts", "CollapsibleParts", "SegmentedParts", "ToastParts", "ListRow":
 			return true
 		}
 	}

@@ -1460,6 +1460,24 @@ func NumberInput(c *Context, value *float64, lo float64, hi float64, step float6
 	return wrapElement(_e)
 }
 
+// NumberInputDraft creates a native number editor bound to the complete raw
+// *text, including empty and invalid drafts. It never normalizes on Enter or
+// editor blur. Input.OnSubmit reports Enter; stepping never submits.
+// step must be non-nil and pure. It receives the current committed text and
+// direction -1 or +1 for Up/Down and the native buttons. A button is disabled
+// when previewing step returns the same text. The callback must not retain
+// Elements or TextKey. Parts are checked handles for the current build only.
+func NumberInputDraft(c *Context, text *string, step func(arg0 string, arg1 int) string) NumberInputParts {
+	_ctx := c.build()
+	if _ctx == nil {
+		return NumberInputParts{}
+	}
+	_ctx.rt.beginBuild()
+	_p := coreNumberInputDraft(_ctx, text, step)
+	_ctx.rt.endBuild()
+	return wrapNumberInputParts(_p)
+}
+
 // Outline creates a list of items in a tree, as AppKit's outline view and
 // SwiftUI's List of children: roots at the top, and below each item open
 // its children, indented, which children returns, nil for an item without
@@ -6497,6 +6515,34 @@ func (p ComboboxParts) resolve() *comboboxParts {
 		return nil
 	}
 	return n.c.rt.parts[p.part].(*comboboxParts)
+}
+
+// NumberInputParts contains checked handles for the parts of a custom widget.
+type NumberInputParts struct {
+	Root     Element
+	Input    Element
+	Decrease Element
+	Increase Element
+	part     uint32
+}
+
+func wrapNumberInputParts(p numberInputParts) NumberInputParts {
+	c := p.c
+	if c == nil {
+		return NumberInputParts{}
+	}
+	_slot := c.rt.keepPart(&p)
+	return NumberInputParts{part: _slot, Root: wrapElement(p.Root), Input: wrapElement(p.Input), Decrease: wrapElement(p.Decrease), Increase: wrapElement(p.Increase)}
+}
+func (p NumberInputParts) resolve() *numberInputParts {
+	n := p.Root.node()
+	if n == nil {
+		return nil
+	}
+	if int(p.part) >= len(n.c.rt.parts) {
+		return nil
+	}
+	return n.c.rt.parts[p.part].(*numberInputParts)
 }
 
 // SegmentedParts contains checked handles for the parts of a custom widget.

@@ -38,6 +38,20 @@ Each entry lists its upstream status at v0.7.4.
   app cannot apply a typed value on Enter or clamp it. `ui/number_submit_test.go`
   covers Enter, typing, stepping, button clicks, repeated frames, both widths,
   text after Enter and a value set by the app while focused.
+- **Controlled number drafts.** `NumberInputDraft(c, &text, step)` binds the
+  caller's complete raw string and returns checked `NumberInputParts` with
+  `Root`, `Input`, `Decrease` and `Increase`. A pure transform receives current
+  committed text and direction -1 or +1 for native arrows and buttons. The
+  constructor derives disabled buttons from the same transform after binding.
+  It never normalizes on child blur or Enter, and steps never submit;
+  `Input.OnSubmit` lets the caller commit. Style actual child borders through
+  the parts, and retain `Handle`, never parts, between builds. The original
+  `NumberInput` signature and eager semantics are unchanged. Both share native
+  construction and width/Column layout. `ui/number_draft_test.go` covers raw
+  text, native batched replacements, paste, composition, button keyboard and
+  pointer activation, undo/redo, disabled transitions and checked lifetimes.
+  Omission before a pending native replacement binds has the same behavior as
+  plain `TextInput`; this API does not flush omitted controls.
 - **Inert subtrees.** `ui/element.go` adds `Element.Inert(bool)` using the existing
   inert subtree mechanism; `ui/api_gen.go` is regenerated with `go generate ./ui`.
   Read-only SVG web views remain visible but cannot receive pointer, keyboard,
