@@ -104,6 +104,7 @@ Entries describe the inherited patches; upstream status statements refer to v0.7
 - **Damage flag reuse.** `internal/scene/damage.go` grows and clears the
   per-op enclosing flags instead of appending a temporary slice, which allocates
   under `-race`. Upstream v0.7.4 still appends the temporary slice.
+- **Tester field targeting.** A named `Field` whose center reaches its associated control can be clicked by name even when an interactive ancestor handles input. Same-named covering controls remain rejected. The scrollbar hit check also respects hidden axes.
 - **Test stability.** `ui/bench_test.go` warms the full sidebar range before
   counting allocations. `internal/darwin/access_expansion_test.go` registers
   only its accessibility class: `registerClasses` would define `MyGoWebView` as

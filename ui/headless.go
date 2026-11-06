@@ -619,7 +619,7 @@ func (t *Tester) targetCenter(s string, button int) (float32, float32, error) {
 			lx, ly := st.local(cx, cy)
 			lx, ly = lx+st.x, ly+st.y
 			g := scrollBars(Rect{st.x, st.y, st.w, st.h}, st.barInset, float32(st.contentW), float32(st.contentH),
-				float32(st.scrollX), float32(st.scrollY), st.flags, st.barWidth, st.rtl)
+				float32(st.scrollX), float32(st.scrollY), st.flags&^st.hiddenScrollbars, st.barWidth, st.rtl)
 			if g.vertical && g.vTrack.Contains(lx, ly) || g.horizontal && g.hTrack.Contains(lx, ly) {
 				return 0, 0, fmt.Errorf("ui: %q is covered by a scroll bar", s)
 			}
@@ -647,8 +647,12 @@ func (t *Tester) targetCenter(s string, button int) (float32, float32, error) {
 	if want != nil {
 		matches = receiver(hit) == want && t.rt.handler(hit) == t.rt.handler(named) &&
 			(button != 1 || t.rt.menuTarget(hit) == t.rt.menuTarget(named))
+
 		for i := range t.rt.c.used {
 			e := t.rt.nodeAt(uint32(i))
+			if button == 0 && e.id == n.id && e.field != nil && e.field.control != nil && receiver(hit) == e.field.control.st && slices.Contains(hit, n.id) {
+				matches = true
+			}
 			if e.id == want.id && e.focusTo != nil && receiver(hit) == e.focusTo.st && slices.Contains(hit, n.id) {
 				matches = true
 				break

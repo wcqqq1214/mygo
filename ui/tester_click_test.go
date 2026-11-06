@@ -244,3 +244,41 @@ func TestNamedClickOnWebViewIgnoringInput(t *testing.T) {
 		})
 	}
 }
+
+func TestTesterClickNamedFieldControl(t *testing.T) {
+	text := "14"
+	tt := NewTester(func(c *Context) {
+		Box(c).Fill().HandleInput(func(InputEvent) bool { return false }).Children(func() {
+			Form(c, func() {
+				Field(c, "Code size", func() {
+					parts := NumberInputDraft(c, &text, func(s string, _ int) string { return s })
+					parts.Root.Label("Code size").Width(240)
+					parts.Input.Label("Code size")
+				})
+			}).FillWidth()
+		})
+	}, 480, 200)
+	if err := tt.Click("Code size"); err != nil {
+		t.Fatal(err)
+	}
+	tt.Key(Cmd, KeyA)
+	tt.Type("21")
+	if text != "21" {
+		t.Fatalf("click did not focus the named input: %q", text)
+	}
+}
+
+func TestTesterClickRejectsSameNamedCover(t *testing.T) {
+	clicks := 0
+	tt := NewTester(func(c *Context) {
+		Button(c, "").Label("target").Size(100, 40).Children(func() {
+			Button(c, "").Label("target").Absolute().Fill().OnClick(func() { clicks++ })
+		})
+	}, 200, 100)
+	if err := tt.Click("target"); err == nil {
+		t.Fatal("covered target accepted")
+	}
+	if clicks != 0 {
+		t.Fatal("click reached covering control")
+	}
+}
