@@ -1,21 +1,12 @@
 # Tomato runtime patches for MyGo
 
-This branch preserves the complete upstream source, tests, documentation, examples,
-website and MIT license of [`github.com/egoist/mygo` v0.7.4](https://github.com/egoist/mygo/tree/v0.7.4),
-commit `9bd34e1eb9525d9a1fe698aadc964c49c8ff8e7e`. It carries the Tomato runtime
-fixes that v0.7.4 does not provide. The module path remains
-`github.com/egoist/mygo`; Tomato pins an immutable commit of this fork through a
-Go module replacement. The module cache is never modified.
-The upstream module checksum is
-`h1:0qkDpDRo7C9g8PM8eu4V6FVouhLiTrUdqKD6I31Lv3Q=`.
+The `tomato/patches` branch merges upstream [v0.8.0](https://github.com/egoist/mygo/releases/tag/v0.8.0), commit `3a3eb30f8e0f7001145205555f2c69a5a167bb32`, into the previous `tomato/v0.7.4-patches` history. The module path remains `github.com/egoist/mygo`. Tomato pins a specific fork commit through a Go module replacement; the branch name does not determine the pinned build.
 
-The previous maintenance branch, `tomato/v0.6.4-patches`, is kept unchanged.
-Its commits were cherry-picked onto v0.7.4; upstream commits and authors are
-preserved without rewriting history.
+The entries below describe the inherited patches and their original upstream comparison. MyGo 0.8 adds overlapping features, including per-element disabled dimming, tooltip delay, number-input sizing, and accessibility inspection. Those do not individually replace the full Tomato contracts covered by the regression tests below.
 
 ## Patches
 
-Each entry lists its upstream status at v0.7.4.
+Entries describe the inherited patches; upstream status statements refer to v0.7.4 unless otherwise stated.
 
 - **Pending find feedback.** Native `FindBar` accepts optional
   `FindBarOptions{Pending: true}`. Pending work displays a localized searching

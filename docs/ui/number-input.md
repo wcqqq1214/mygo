@@ -11,6 +11,7 @@ input, as for a [text input](text-input.md), so that an app can apply what
 was typed only then. A `Width` wider than the natural one is taken by the
 input, which keeps the buttons at the end. Enter shows the value in full, as
 losing the focus does, and a value the app sets replaces what was typed.
+A narrow `Width` keeps the buttons within the control.
 
 ```go
 ui.NumberInput(c, &app.copies, 1, 99, 1).Label("Copies")

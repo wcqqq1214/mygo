@@ -41,8 +41,12 @@ import (
 //		m.EditItems()
 //	})
 //
-// PopoverMenu draws the same menu in the window, with the theme's look.
+// PopoverMenu draws the same menu in the window, with the theme's look, as
+// ContextMenu does while the window draws its menus (SetMenuPresentation).
 func (e *node) ContextMenu(build func(m *Menu)) *node {
+	if e.c.rt.drawsMenus() {
+		return menusInWindow.contextMenu(e, build)
+	}
 	e.flags |= flagContextMenu
 	e.buildMenu(false, false, build)
 	return e
@@ -64,8 +68,12 @@ func (e *node) ContextMenu(build func(m *Menu)) *node {
 //	})
 //
 // PopoverMenuButton draws the same menu in the window, with the theme's
-// look.
+// look, as Menu does while the window draws its menus
+// (SetMenuPresentation).
 func (e *node) Menu(build func(m *Menu)) *node {
+	if e.c.rt.drawsMenus() {
+		return menusInWindow.menuButton(e, build)
+	}
 	e.flags |= flagMenuButton | flagClickable | flagFocusable
 	if e.role == RoleAuto || e.role == RoleButton {
 		e.role = RoleMenuButton
@@ -87,7 +95,7 @@ func (e *node) buildMenu(button, drawn bool, build func(m *Menu)) {
 		if e.disabled() {
 			break
 		}
-		if d := mr.drawn; drawn && mr.below && d != nil && d.id == e.id && d.below {
+		if d := mr.drawn; drawn && mr.below && d != nil && d.id == e.id && d.menu.below {
 			// The button pressed again while its menu shows.
 			mr.drawn = nil
 			break
@@ -176,8 +184,9 @@ func (m *Menu) add(label string, typ platform.MenuItemType) *MenuItem {
 // EditItems adds the editing items of the text the menu opened on, as its
 // menu has them without ContextMenu: Copy and Select All for selectable
 // text, the platform's text field items for a text input. Choosing one does
-// its command on the text, without reaching the menu's function. It adds
-// nothing to a menu that opened on no text.
+// its command on the text, without reaching the menu's function. An element
+// within text, as a link in a paragraph, opens its menu on that text. It
+// adds nothing to a menu that opened on no text.
 func (m *Menu) EditItems() {
 	if m.text == nil || m.text.editor == nil {
 		return
@@ -250,6 +259,41 @@ func (it *MenuItem) Radio(on bool) *MenuItem {
 	return it
 }
 
+// MenuIcon is the image of a menu item, as mygo.NewMenuIcon makes it.
+type MenuIcon interface {
+	PlatformMenuIcon() *platform.MenuIcon
+}
+
+// Icon shows an image beside the item's label, one mygo.NewMenuIcon made:
+// make each once, not as the menu builds, and give it to the items that
+// show it. A template image takes the color of the item's text. nil shows
+// none. The system's menus show it as package mygo's items do (see
+// NewMenuIcon), and browsers show none; PopoverMenu draws it on every
+// platform.
+//
+//	if m.Item("Archive").Icon(archiveIcon).Chosen() {
+//		app.archive(msg)
+//	}
+func (it *MenuItem) Icon(icon MenuIcon) *MenuItem {
+	if it.p != nil && icon != nil {
+		it.p.Icon = icon.PlatformMenuIcon()
+	}
+	return it
+}
+
+// Tooltip shows s as the pointer rests on the item, as Element.Tooltip
+// does, to say what it does. The system's menus show it on macOS and Linux,
+// as package mygo's items' ToolTip, and those of Windows and browsers show
+// none; PopoverMenu shows it on every platform.
+//
+//	m.Item("Run").Shortcut(ui.Cmd, ui.KeyEnter).Tooltip("Runs the query under the caret")
+func (it *MenuItem) Tooltip(s string) *MenuItem {
+	if it.p != nil {
+		it.p.ToolTip = s
+	}
+	return it
+}
+
 // Shortcut shows a key with modifiers by the item, as the shortcut that
 // does the same; the view handles the key itself, as with
 // Context.Shortcut.
@@ -286,7 +330,7 @@ type menuState struct {
 	// the menu key or Shift+F10, or a menu button's for its keys; below
 	// when a menu button's opens below the button itself, rather than
 	// from a toolbar's overflow menu.
-	button, chosenButton, key, below bool
+	button, chosenButton, key, last, below bool
 	// release is the element whose menu opens when the secondary button
 	// goes up, as on Windows, on the text releaseText.
 	release, releaseText uint64
@@ -347,12 +391,23 @@ func (rt *engine) menuTarget(chain []uint64) *state {
 	return nil
 }
 
+// textAround returns the selectable text or text input around s in chain,
+// whose context menu s replaces, as a paragraph's for a link in it, or nil.
+func (rt *engine) textAround(chain []uint64, s *state) *state {
+	for _, id := range chain[slices.Index(chain, s.id)+1:] {
+		if t := rt.states[id]; t != nil && t.flags&(flagEditable|flagSelectable) != 0 && t.editor != nil {
+			return t
+		}
+	}
+	return nil
+}
+
 // askMenu has the next frame build the context menu of s, or with button
 // its menu button's, to show at (x, y): where it was clicked, or below the
 // focus.
 func (rt *engine) askMenu(s *state, x, y float32, button bool) {
 	mr := &rt.menu
-	mr.asked, mr.x, mr.y, mr.button, mr.text, mr.key, mr.below = s.id, x, y, button, 0, false, false
+	mr.asked, mr.x, mr.y, mr.button, mr.text, mr.key, mr.last, mr.below = s.id, x, y, button, 0, false, false, false
 	// The menu takes the press: the release goes to it.
 	if rt.pressed != nil {
 		rt.pressed.pressed = false
@@ -399,6 +454,8 @@ func (rt *engine) menuPress(chain []uint64, x, y float32) bool {
 	if s.editor != nil {
 		text = s.id
 		s = rt.textMenu(s)
+	} else if t := rt.textAround(chain, s); t != nil {
+		text = t.id
 	}
 	if runtime.GOOS == "windows" {
 		rt.menu.release, rt.menu.releaseText = s.id, text
@@ -445,6 +502,8 @@ func (rt *engine) menuKey() bool {
 		x, y = r.X, r.Y+r.H
 		text = s.id
 		s = rt.textMenu(s)
+	} else if t := rt.textAround(rt.focusChain(), s); t != nil {
+		text = t.id
 	}
 	rt.askMenu(s, x, y, false)
 	rt.menu.text, rt.menu.key = text, true
@@ -466,6 +525,13 @@ func (rt *engine) openMenuButton(s *state, key bool) {
 	x, y := s.menuCorner()
 	rt.askMenu(s, x, y, true)
 	rt.menu.key, rt.menu.below = key, true
+}
+
+// openMenuButtonOnLast opens the menu of menu button s from the keyboard
+// on its last item that can be chosen, as the Up key does.
+func (rt *engine) openMenuButtonOnLast(s *state) {
+	rt.openMenuButton(s, true)
+	rt.menu.last = true
 }
 
 // menuCorner returns where the menu of a button goes: at its bottom left
@@ -505,7 +571,11 @@ func (rt *engine) resolveMenu() {
 	}
 	mr.asked = 0
 	if s := rt.states[id]; s != nil && s.seen == rt.frame && s.editor != nil && !mr.button {
-		rt.editMenu(s)
+		if rt.drawsEditMenuOf(s) {
+			menusInWindow.openEditMenu(rt, s)
+		} else {
+			rt.editMenu(s)
+		}
 	}
 }
 

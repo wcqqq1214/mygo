@@ -144,7 +144,7 @@ func numberInputChildren(c *context, row *node, text *string, input func(*node),
 	t := c.theme
 	p := numberInputParts{Root: row, c: c}
 	row.Children(func() {
-		in := coreTextInput(c, text).Width(t.Space(20))
+		in := coreTextInput(c, text).Width(t.Space(20)).Shrink(1).MinWidth(0)
 		// Keep the automatic basis so Column uses the input's height.
 		in.grow = 1
 		in.growWithParentWidth = true
