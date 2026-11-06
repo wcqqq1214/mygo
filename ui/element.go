@@ -1023,13 +1023,14 @@ func (e *node) ScrollbarAxes(horizontal, vertical bool) *node {
 func (e *node) KeepScrollbars(keep bool) *node { e.keepScrollbars = keep; return e }
 
 // scrollbars returns whether the element hides its scroll bars
-// (Scrollbars(false)) and whether it keeps them showing (KeepScrollbars),
+// (Scrollbars(false)), whether it keeps them showing (KeepScrollbars),
+// and which axes are hidden (ScrollbarAxes),
 // as it says or the element it takes them from does (barsFrom).
-func (e *node) scrollbars() (hide, keep bool) {
+func (e *node) scrollbars() (hide, keep bool, hiddenAxes uint32) {
 	if e.barsFrom != nil {
 		e = e.barsFrom
 	}
-	return e.hideScrollbars, e.keepScrollbars
+	return e.hideScrollbars, e.keepScrollbars, e.hiddenScrollbars
 }
 
 // Width sets the width in DIPs.

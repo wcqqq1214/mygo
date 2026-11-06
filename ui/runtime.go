@@ -1429,7 +1429,7 @@ func (rt *engine) commitElement(e *node, clip Rect, hidden bool) {
 		s.contentW, s.contentH = e.contentW, e.contentH
 		s.barInset = e.barInset
 		s.barWidth = e.theme().scrollbarWidth()
-		s.hiddenScrollbars = e.hiddenScrollbars
+		_, _, s.hiddenScrollbars = e.scrollbars()
 		if rt.scrollDrag.st == s {
 			axis := uint32(flagScrollY)
 			if rt.scrollDrag.horizontal {
@@ -1440,7 +1440,7 @@ func (rt *engine) commitElement(e *node, clip Rect, hidden bool) {
 			}
 		}
 	}
-	s.hideScrollbars, _ = e.scrollbars()
+	s.hideScrollbars, _, _ = e.scrollbars()
 	// What is invisible keeps its box but takes neither the pointer nor
 	// the focus, and has no text to find; so does what is inert, which
 	// shows, and what is Hidden, which has no box.

@@ -1392,7 +1392,7 @@ func (p *Painter) scrollbars(e *node) {
 	// A press takes the bars only where the window shows them
 	// (scrollbarPress). Kept, they show as on hover, the same thumb on no
 	// track, so that the pointer coming over changes nothing.
-	hide, keep := e.scrollbars()
+	hide, keep, hiddenAxes := e.scrollbars()
 	st.barsShown = !hide && (keep || hovered || dragging)
 	if !st.barsShown {
 		return
@@ -1408,7 +1408,7 @@ func (p *Painter) scrollbars(e *node) {
 		x = rescale(x, e.contentW-float64(e.w), w-float64(e.w))
 		y = rescale(y, e.contentH-float64(e.h), h-float64(e.h))
 	}
-	g := scrollBars(Rect{e.x, e.y, e.w, e.h}, e.barInset, float32(w), float32(h), float32(x), float32(y), e.flags&^e.hiddenScrollbars, theme.scrollbarWidth(), e.rtl())
+	g := scrollBars(Rect{e.x, e.y, e.w, e.h}, e.barInset, float32(w), float32(h), float32(x), float32(y), e.flags&^hiddenAxes, theme.scrollbarWidth(), e.rtl())
 	if g.vertical {
 		p.scrollThumbFill(g.v, false, dragging && !rt.scrollDrag.horizontal, color)
 	}

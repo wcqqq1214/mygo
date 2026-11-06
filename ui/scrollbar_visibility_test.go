@@ -118,3 +118,31 @@ func TestScrollbarVisibilityAxesYieldToScrollbarsFalse(t *testing.T) {
 		t.Fatal("Scrollbars(false) took a press on a bar enabled by ScrollbarAxes")
 	}
 }
+
+func TestScrollbarVisibilityTableAxes(t *testing.T) {
+	var state ListState
+	visible := true
+	tt := NewTester(func(c *Context) {
+		Table(c, &state, []TableColumn{{Title: "Name", Width: 200}}, 100, func(row, col int) {
+			Text(c, fmt.Sprintf("row %d", row))
+		}).Size(200, 200).ScrollbarAxes(true, visible)
+	}, 220, 220)
+	tt.Move(100, 100)
+	shown := tt.Image().RGBAAt(194, 40)
+	visible = false
+	tt.Frame()
+	hidden := tt.Image().RGBAAt(194, 40)
+	if shown == hidden {
+		t.Fatal("hiding the vertical table scrollbar did not change its pixels")
+	}
+	tt.Press(194, 40)
+	tt.Move(194, 120)
+	tt.Release(194, 120)
+	if state.wroteY != 0 {
+		t.Fatalf("hidden scrollbar took a drag: %v", state.wroteY)
+	}
+	tt.Scroll(100, 100, 0, 60)
+	if state.wroteY <= 0 {
+		t.Fatal("hidden scrollbar prevented wheel scrolling")
+	}
+}
