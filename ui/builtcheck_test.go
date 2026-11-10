@@ -21,7 +21,7 @@ var derivedFields = map[string]bool{
 	"x": true, "y": true, "w": true, "h": true, "contentW": true, "contentH": true,
 	"world": true, "ink": true, "noCull": true, "tl": true, "measured": true,
 	"lay": true, "laid": true, "placed": true, "flips": true, "frags": true,
-	"poseM": true, "poseFade": true, "reposed": true,
+	"poseM": true, "poseFade": true, "reposed": true, "focusPosition": true,
 	"parent": true, "first": true, "last": true, "next": true, "nchild": true,
 }
 

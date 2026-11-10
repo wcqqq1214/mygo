@@ -679,6 +679,10 @@ func (t *Tester) targetLabelCenter(n *labelNode, button int) (float32, float32, 
 		}
 		for i := range t.rt.c.used {
 			e := t.rt.nodeAt(uint32(i))
+			if button == 0 && e.id == n.id && e.field != nil && e.field.control != nil && got == e.field.control.st && slices.Contains(hit, n.id) {
+				matches = true
+				break
+			}
 			if e.id == want.id && e.focusTo != nil && got == e.focusTo.st && slices.Contains(hit, n.id) {
 				matches = true
 				break
@@ -1081,6 +1085,36 @@ func (t *Tester) Announcements() []string {
 	a := t.h.announced
 	t.h.announced = nil
 	return a
+}
+
+// AccessibilityNode is an immutable snapshot of a control's semantic state.
+// It exposes no build values or platform-specific tree storage.
+type AccessibilityNode struct {
+	Role                                                       Role
+	Label, Value                                               string
+	Checked, Selected, Expanded, Expandable, Disabled, Focused bool
+}
+
+// Accessibility enables assistive-technology output and returns the current
+// semantic nodes, including states that cannot be verified from pixels.
+func (t *Tester) Accessibility() []AccessibilityNode {
+	t.send(platform.SurfaceEvent{Kind: platform.AccessibilityOn})
+	if t.h.access == nil {
+		return nil
+	}
+	result := make([]AccessibilityNode, 0, len(t.h.access.Nodes))
+	for _, n := range t.h.access.Nodes {
+		result = append(result, AccessibilityNode{
+			Role: Role(n.Role) + RoleGroup, Label: n.Label, Value: n.Value,
+			Checked:    n.States&platform.AccessChecked != 0,
+			Selected:   n.States&platform.AccessSelected != 0,
+			Expanded:   n.States&platform.AccessExpanded != 0,
+			Expandable: n.States&platform.AccessExpandable != 0,
+			Disabled:   n.States&platform.AccessDisabled != 0,
+			Focused:    n.ID == t.h.access.Focus,
+		})
+	}
+	return result
 }
 
 // Focused reports whether the element showing text or labeled s, or its

@@ -3,6 +3,8 @@ package ui
 import (
 	"slices"
 	"time"
+
+	"github.com/egoist/mygo/internal/platform"
 )
 
 const (
@@ -31,7 +33,10 @@ type tooltips struct {
 	// neither the pointer nor the focus is on it.
 	dismissed uint64
 	// lastShown is when a tip last showed, or went.
-	lastShown time.Time
+	lastShown       time.Time
+	target, tip     uint64
+	targetSince     time.Time
+	suppressedHover uint64
 }
 
 // TooltipBase shows a tip without a look by anchor: fn styles the tip and
@@ -81,12 +86,27 @@ func tooltipBase(c *context, anchor *node, fn func(tip *node)) (*node, bool) {
 	if c.inert || rt.showTooltip(c) != anchor.id || rt.tips.dismissed == anchor.id {
 		return nil, false
 	}
+	if c.theme.TooltipPolicy != nil && anchor.IsDisabled() {
+		rt.tips.shown, rt.tips.target = 0, 0
+		return nil, false
+	}
 	var tip *node
 	coreOverlay(c, func() {
-		tip = coreBox(c).Absolute().IgnoreInput(true).Role(RoleTooltip)
+		tip = coreBox(c).Absolute().Role(RoleTooltip)
+		policy := c.theme.TooltipPolicy
+		if policy != nil && policy.Hoverable {
+			tip.flags |= flagHover
+		} else {
+			tip.IgnoreInput(true)
+		}
+		rt.tips.tip = tip.id
 		fn(tip)
 		if tip.attach == 0 {
-			tip.AttachTo(anchor, AnchorTop, AnchorBottom)
+			if policy != nil && policy.PreferBelow {
+				tip.AttachTo(anchor, AnchorBottom, AnchorTop).Margin(policy.Gap, 0, 0, 0)
+			} else {
+				tip.AttachTo(anchor, AnchorTop, AnchorBottom)
+			}
 		}
 		if tip.OverlayShortcut(0, KeyEscape) {
 			rt.tips.dismissed = anchor.id
@@ -127,11 +147,19 @@ func (e *node) Tooltip(s string) *node {
 	t := c.theme
 	fill, text := t.inverse()
 	tooltipBase(c, e, func(tip *node) {
-		tip.MaxWidth(t.Space(80)).Padding(t.Space(1.25), t.Space(2)).Radius(t.Space(1.25)).
-			Background(fill).TextColor(text).FontSize(t.FontSize - 1)
-		tip.Shadow(0, 2, 8, 0, RGBA(0, 0, 0, 0.2))
+		if t.TooltipStyle != nil {
+			t.TooltipStyle(wrapElement(tip))
+		} else {
+			tip.MaxWidth(t.Space(80)).Padding(t.Space(1.25), t.Space(2)).Radius(t.Space(1.25)).
+				Background(fill).TextColor(text).FontSize(t.FontSize - 1)
+			tip.Shadow(0, 2, 8, 0, RGBA(0, 0, 0, 0.2))
+		}
 		tip.Children(func() { coreText(c, s) })
-		tip.AttachTo(e, AnchorTop, AnchorBottom).Margin(0, 0, t.Space(1.5), 0)
+		if t.TooltipPolicy != nil && t.TooltipPolicy.PreferBelow {
+			tip.AttachTo(e, AnchorBottom, AnchorTop).Margin(t.TooltipPolicy.Gap, 0, 0, 0)
+		} else {
+			tip.AttachTo(e, AnchorTop, AnchorBottom).Margin(0, 0, t.Space(1.5), 0)
+		}
 	})
 	return e
 }
@@ -147,13 +175,18 @@ func (rt *engine) showTooltip(c *context) uint64 {
 	}
 	t.frame, t.pass = rt.frame, rt.pass
 	now := c.now
+	policy := c.theme.TooltipPolicy
+	if policy != nil && !rt.windowFocus() {
+		t.shown = 0
+		return 0
+	}
 	if t.shown != 0 {
 		// The tip of the last frame showed until now.
 		t.lastShown = now
 	}
 	tipped := func(id uint64) bool {
 		s := rt.states[id]
-		return s != nil && s.tip && s.flags&flagDisabled == 0
+		return s != nil && s.tip && s.flags&flagDisabled == 0 && (policy == nil || rt.modal == 0 || rt.scopeOf(id) == rt.modal)
 	}
 	var hover uint64
 	for _, id := range rt.hover {
@@ -162,14 +195,18 @@ func (rt *engine) showTooltip(c *context) uint64 {
 			break
 		}
 	}
+	if policy != nil && policy.Hoverable && t.shown != 0 && tipped(t.shown) && slices.Contains(rt.hover, t.tip) {
+		hover = t.shown
+	}
 	if hover != t.hover {
 		t.hover, t.hoverSince = hover, now
+		t.suppressedHover = 0
 	}
 	// The element with the keyboard focus, or the one it gives it to (as
 	// a menu's highlighted item, an ActiveDescendant), whose tip shows as a
 	// focused element's does.
 	var focus uint64
-	if rt.focusVisible && rt.windowFocus() {
+	if (rt.focusVisible || policy != nil) && rt.windowFocus() {
 		if f := rt.states[rt.focused]; f != nil {
 			switch {
 			case tipped(f.activeDescendant):
@@ -181,6 +218,33 @@ func (rt *engine) showTooltip(c *context) uint64 {
 	}
 	if focus != t.focus {
 		t.focus, t.focusSince = focus, now
+		if policy != nil && focus != 0 && rt.focusVisible {
+			t.suppressedHover = hover
+		}
+	}
+	if policy != nil {
+		candidate, byFocus := hover, false
+		if candidate == t.suppressedHover {
+			candidate = 0
+		}
+		if focus != 0 && candidate == 0 {
+			candidate, byFocus = focus, true
+		}
+		if candidate != t.target {
+			t.target, t.targetSince, t.dismissed = candidate, now, 0
+		}
+		if rt.pressed != nil && candidate != 0 {
+			t.dismissed = candidate
+		}
+		t.shown, t.byFocus = 0, false
+		if candidate != 0 && candidate != t.dismissed {
+			if wait := policy.Delay - now.Sub(t.targetSince); wait > 0 {
+				rt.scheduleAt(now.Add(wait))
+			} else {
+				t.shown, t.byFocus = candidate, byFocus
+			}
+		}
+		return t.shown
 	}
 	if t.dismissed != hover && t.dismissed != focus {
 		t.dismissed = 0
@@ -217,4 +281,44 @@ func (rt *engine) showTooltip(c *context) uint64 {
 		t.shown = hover
 	}
 	return t.shown
+}
+
+// dismissTooltipInput runs before ordinary key routing so Escape can dismiss
+// an engaged, even still pending, hint without also closing its parent UI.
+func (rt *engine) dismissTooltipInput(ev platform.SurfaceEvent) bool {
+	if rt.c.theme == nil {
+		return false
+	}
+	policy := rt.c.theme.TooltipPolicy
+	if policy != nil && rt.modal != 0 && rt.scopeOf(rt.tips.target) != rt.modal {
+		rt.tips.target, rt.tips.shown = 0, 0
+	}
+	if policy != nil && ev.Kind == platform.PointerMove {
+		rt.tips.suppressedHover = 0
+	}
+	if policy == nil || !policy.DismissOnInput || rt.tips.target == 0 || rt.tips.dismissed == rt.tips.target {
+		return false
+	}
+	dismiss, consume := false, false
+	switch ev.Kind {
+	case platform.PointerDown, platform.WebViewPress, platform.PointerScroll, platform.SurfaceResize, platform.SurfaceBlur:
+		dismiss = true
+	case platform.KeyPressed:
+		dismiss = Key(ev.Key) == KeyEscape || Key(ev.Key) == KeyEnter || Key(ev.Key) == KeySpace
+		consume = Key(ev.Key) == KeyEscape
+	}
+	if dismiss {
+		rt.dismissEngagedTooltip()
+	}
+	return consume
+}
+
+func (rt *engine) dismissEngagedTooltip() {
+	if rt.c.theme == nil {
+		return
+	}
+	if policy := rt.c.theme.TooltipPolicy; policy != nil && policy.DismissOnInput && rt.tips.target != 0 {
+		rt.tips.dismissed = rt.tips.target
+		rt.requestFrame()
+	}
 }

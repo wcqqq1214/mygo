@@ -2604,6 +2604,17 @@ The private render tree uses `node` and `context`; `internal/uigen` generates
 the checked public facade. `FocusBind` binds desired focus to app data; `FocusedValue` reads actual focus independently of a hidden
 control's pending request.
 
+`NumberInput` owns an eager numeric edit. `NumberInputDraft(c, &text, step)`
+keeps the caller's raw string, including invalid and empty text, and returns
+`NumberInputParts` with checked Root, Input, Decrease and Increase Elements.
+Its pure transform receives current committed text and direction -1 or +1 for
+native arrows and buttons. After text binding, the same transform determines
+whether a button would change the draft. Enter and child blur do not normalize
+it; Input.OnSubmit provides the caller's commit boundary and steps do not submit.
+The parts expose existing styling and accessibility APIs and expire each build.
+Retain Handles for focus across builds. Like plain TextInput, a control omitted
+before its pending native input binds does not promise to publish that input.
+
 See the [migration guide](ui/migration.md) for the breaking element API,
 `mygo migrate-ui`, and the Go type-aware lifetime checks in `mygo vet`.
 

@@ -5,6 +5,7 @@ import (
 	"strings"
 	"sync"
 	"unicode/utf16"
+	"unsafe"
 
 	"github.com/egoist/mygo/internal/text"
 )
@@ -20,6 +21,23 @@ type TextLayout struct {
 	units      []int // rune offset -> UTF-16 offset
 	boundaries []int // grapheme boundaries in runes
 	spans      []Span
+}
+
+// MemoryCost estimates retained Go layout data for cache admission. It includes
+// reserved lazy caret geometry and excludes shared fonts, atlases and platform
+// caches. Strings are charged by length, not by a shared backing allocation.
+// Callers with strict retention budgets must own substring storage. Shared text
+// or layouts can be counted more than once. It is not RSS.
+func (t *TextLayout) MemoryCost() int {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	n := int(unsafe.Sizeof(*t)) + t.l.MemoryCost()
+	n += (cap(t.units) + cap(t.boundaries)) * int(unsafe.Sizeof(int(0)))
+	n += cap(t.spans) * int(unsafe.Sizeof(Span{}))
+	for _, span := range t.spans {
+		n += len(span.Text) + len(span.Font) + len(span.Features) + len(span.Lang)
+	}
+	return n
 }
 
 // TextAffinity chooses a caret's preceding or following logical edge. Bidi

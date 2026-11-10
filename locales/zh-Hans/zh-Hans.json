@@ -9,6 +9,7 @@
   "delete": "删除",
   "selectAll": "全选",
   "find": "查找",
+  "searching": "搜索中…",
   "search": "搜索",
   "clear": "清除",
   "removeToken": "移除{token}",

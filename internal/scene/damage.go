@@ -3,6 +3,7 @@ package scene
 import (
 	"image"
 	"math"
+	"slices"
 )
 
 // A Differ finds where the successive scenes of a window differ, so that a
@@ -341,7 +342,9 @@ func (d *Differ) opBounds(s *Scene, out []image.Rectangle) []image.Rectangle {
 	clip := image.Rect(0, 0, s.Width, s.Height)
 	d.clips, d.pushes = d.clips[:0], d.pushes[:0]
 	d.corners.Reset()
-	d.encloses2 = append(d.encloses2[:0], make([]bool, len(s.Ops))...)
+	// Reuse and clear explicitly: appending a temporary slice allocates under -race.
+	d.encloses2 = slices.Grow(d.encloses2[:0], len(s.Ops))[:len(s.Ops)]
+	clear(d.encloses2)
 	reach := func(m Affine) float32 {
 		if m.Set {
 			return d.Reach + 3

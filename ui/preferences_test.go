@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"reflect"
 	"testing"
 	"time"
 )
@@ -57,7 +58,7 @@ func TestThemeWithAccent(t *testing.T) {
 	if a := LightTheme().WithAccent(Color{R: 219, G: 39, B: 119, A: 128}).Accent; a != pink {
 		t.Errorf("translucent: %v", a)
 	}
-	if a := DarkTheme().WithAccent(Color{}); *a != *DarkTheme() {
+	if a := DarkTheme().WithAccent(Color{}); !reflect.DeepEqual(a, DarkTheme()) {
 		t.Errorf("no accent: %+v", a)
 	}
 }
@@ -83,7 +84,7 @@ func TestThemeWithPreferences(t *testing.T) {
 			got.ScrollbarStyle != followed.ScrollbarStyle {
 			t.Errorf("dark %v: WithPreferences %+v, the followed theme %+v", dark, got, followed)
 		}
-		if *base != before {
+		if !reflect.DeepEqual(*base, before) {
 			t.Errorf("dark %v: WithPreferences changed the theme it was called on", dark)
 		}
 	}
@@ -128,7 +129,7 @@ func TestThemeWithPreferencesAgain(t *testing.T) {
 func sameTheme(a, b *Theme) bool {
 	x, y := *a, *b
 	x.followed, y.followed = nil, nil
-	return x == y
+	return reflect.DeepEqual(x, y)
 }
 
 func TestThemeFollowsContrastAndTextSize(t *testing.T) {

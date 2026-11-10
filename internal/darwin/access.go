@@ -492,8 +492,10 @@ func (el *accessElement) apply(n platform.AccessNode, fresh bool) (valueChanged 
 		// How deep the row of an outline is, from 0.
 		send(obj, "setAccessibilityDisclosureLevel:", uintptr(n.Level-1))
 	}
-	if n.Role == platform.RoleTreeItem && (fresh || n.States&platform.AccessExpanded != o.States&platform.AccessExpanded) {
-		send(obj, "setAccessibilityDisclosed:", boolArg(n.States&platform.AccessExpanded != 0))
+	if fresh || n.Role != o.Role || (n.States^o.States)&(platform.AccessExpanded|platform.AccessExpandable) != 0 {
+		if n.Role == platform.RoleTreeItem || o.Role == platform.RoleTreeItem || (n.States|o.States)&platform.AccessExpandable != 0 {
+			send(obj, "setAccessibilityDisclosed:", boolArg(n.States&platform.AccessExpanded != 0))
+		}
 	}
 	if n.PosInSet > 0 && (fresh || n.PosInSet != o.PosInSet) {
 		send(obj, "setAccessibilityIndex:", uintptr(n.PosInSet-1))
@@ -935,6 +937,14 @@ func registerAccessClass() {
 			if el.node.States&platform.AccessInvalid != 0 {
 				names = send(names, "arrayByAddingObject:", uintptr(nsString("AXInvalid")))
 			}
+			if el.node.States&platform.AccessExpandable != 0 {
+				for _, name := range []string{"AXExpanded", "AXDisclosing"} {
+					attr := nsString(name)
+					if !sendBool(names, "containsObject:", uintptr(attr)) {
+						names = send(names, "arrayByAddingObject:", uintptr(attr))
+					}
+				}
+			}
 			// The elements holding its error, as WebKit's say
 			// aria-errormessage.
 			if errorMessages(el.node) {
@@ -1022,6 +1032,10 @@ func registerAccessClass() {
 		method("accessibilityAttributeValue:", func(self id, cmd objc.SEL, attr id) id {
 			if el := b().accessElementOf(self); el != nil {
 				switch stringOf(attr) {
+				case "AXExpanded", "AXDisclosing":
+					if el.node.States&platform.AccessExpandable != 0 {
+						return nsNumberInt(int(el.node.States&platform.AccessExpanded) / int(platform.AccessExpanded))
+					}
 				case "AXInvalid":
 					if el.node.States&platform.AccessInvalid != 0 {
 						return nsString("true")
@@ -1182,7 +1196,7 @@ func registerAccessClass() {
 			case "AXFocused":
 				return true
 			case "AXDisclosing":
-				return el.node.Role == platform.RoleTreeItem
+				return el.node.Actions&platform.ActionExpand != 0
 			}
 			return false
 		}),

@@ -222,6 +222,11 @@ func coreAlertDialog(c *context, open *bool, title, message string, buttons ...s
 	return chosen
 }
 
+// FindBarOptions configures asynchronous search feedback.
+type FindBarOptions struct {
+	Pending bool
+}
+
 // FindBar creates a bar for finding text while *open is true, as Safari's
 // and Xcode's: a field of *query, which takes the focus as the bar opens,
 // how many matches there are of matches, previous and next buttons
@@ -231,9 +236,11 @@ func coreAlertDialog(c *context, open *bool, title, message string, buttons ...s
 // the bar. The app finds: it counts the matches of *query and shows match
 // *current, which Changed reports moving. Assistive technology hears the
 // count as it changes. While closed, it returns an element showing
-// nothing.
-func coreFindBar(c *context, open *bool, query *string, matches int, current *int) *node {
+// nothing. Pending in the optional settings replaces the count with a searching
+// status and disables match navigation while leaving editing and closing enabled.
+func coreFindBar(c *context, open *bool, query *string, matches int, current *int, options ...FindBarOptions) *node {
 	t := c.theme
+	pending := len(options) > 0 && options[0].Pending
 	if !*open {
 		// Nothing, which Changed and the rest can ask.
 		e := coreBox(c).Absolute()
@@ -248,7 +255,7 @@ func coreFindBar(c *context, open *bool, query *string, matches int, current *in
 	opening := coreLocal(bar, "opening", func() bool { return true })
 	*current = max(0, min(*current, matches-1))
 	step := func(d int) {
-		if matches > 0 {
+		if !pending && matches > 0 {
 			*current = (*current + d + matches) % matches
 			bar.st.markChanged()
 			c.rt.consumed = true
@@ -297,6 +304,8 @@ func coreFindBar(c *context, open *bool, query *string, matches int, current *in
 		switch {
 		case *query == "":
 			status = ""
+		case pending:
+			status = c.texts().Searching()
 		case matches > 0:
 			status = c.texts().Matches(*current+1, matches)
 		}
@@ -305,7 +314,7 @@ func coreFindBar(c *context, open *bool, query *string, matches int, current *in
 			label string
 			d     int
 		}{{c.texts().Previous(), -1}, {c.texts().Next(), 1}} {
-			btn := coreButton(c, "").Padding(t.Space(1.5), t.Space(2)).Label(b.label).Disabled(matches == 0)
+			btn := coreButton(c, "").Padding(t.Space(1.5), t.Space(2)).Label(b.label).Disabled(pending || matches == 0)
 			up := b.d < 0
 			btn.Children(func() {
 				coreBox(c).Size(t.Space(3), t.Space(3)).Shrink(0).Draw(func(p *Painter, r Rect) {

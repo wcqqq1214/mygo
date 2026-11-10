@@ -35,6 +35,13 @@ func (e *node) marginY() float32 { return e.m(0) + e.m(2) }
 
 func (e *node) scrolls() bool { return e.flags&(flagScrollX|flagScrollY) != 0 }
 
+func (e *node) flexGrow() float32 {
+	if e.growWithParentWidth && (e.parent == nil || e.parent.width.u == unitAuto) {
+		return 0
+	}
+	return e.grow
+}
+
 // clampW and clampH apply the min and max sizes.
 func (e *node) clampW(w, cbW float32) float32 {
 	if v, ok := e.maxW.upper(base(cbW)); ok {
@@ -158,6 +165,7 @@ func place(e *node, x, y float32) {
 			t.MaxX, t.MaxY = float32(mx), float32(my)
 		}
 		if s.movedIn(e.c.rt.frame) {
+			e.c.rt.dismissEngagedTooltip()
 			// What was built read the old offset, as List's rows or the
 			// app from its ScrollState: build the next frame with the new.
 			e.c.rt.animating = true
@@ -421,7 +429,7 @@ func measureIntrinsic(e *node, maxContent bool) float32 {
 				// Neither goes below its minimum.
 				if b, ok := ch.basis.resolve(-1); ok {
 					b = ch.clampW(b, inf)
-					if ch.grow == 0 {
+					if ch.flexGrow() == 0 {
 						cw = max(min(cw, b), autoMinWidth(ch))
 					}
 					if ch.shrink == 0 {
@@ -653,6 +661,7 @@ type flexItem struct {
 	// is, and laidOut is set on those of a row, laid out to find theirs.
 	baseline                float32
 	frozen, byBase, laidOut bool
+	factor                  float32 // grow, or shrink scaled by the inner base size
 	line                    int32
 }
 
@@ -785,7 +794,7 @@ func flexLayout(e *node, cw, ch float32, commit bool) (usedW, usedH float32) {
 			}
 			if v, ok := c.minH.lower(base(ch)); ok {
 				it.minMain = v
-			} else if !c.scrolls() && c.flags&flagClipY == 0 && c.grow == 0 {
+			} else if !c.scrolls() && c.flags&flagClipY == 0 && c.flexGrow() == 0 {
 				it.minMain = min(heightAt(c, it.cross, inf), it.maxMain)
 				if owns {
 					it.minMain = min(it.minMain, own)
@@ -1125,11 +1134,11 @@ func resolveFlexible(its []flexItem, space float32, growing bool) {
 	for i := range its {
 		it := &its[i]
 		it.frozen = false
-		factor := it.e.grow
+		it.factor = it.e.flexGrow()
 		if !growing {
-			factor = it.e.shrink * it.inner()
+			it.factor = it.e.shrink * it.inner()
 		}
-		if factor == 0 || (growing && it.base > it.hyp) || (!growing && it.base < it.hyp) {
+		if it.factor == 0 || (growing && it.base > it.hyp) || (!growing && it.base < it.hyp) {
 			it.main, it.frozen = it.hyp, true
 		}
 	}
@@ -1141,11 +1150,7 @@ func resolveFlexible(its []flexItem, space float32, growing bool) {
 				free -= it.main + it.marginMain
 			} else {
 				free -= it.base + it.marginMain
-				if growing {
-					sum += it.e.grow
-				} else {
-					sum += it.e.shrink * it.inner()
-				}
+				sum += it.factor
 			}
 		}
 		if sum == 0 {
@@ -1158,7 +1163,7 @@ func resolveFlexible(its []flexItem, space float32, growing bool) {
 				continue
 			}
 			if growing {
-				it.main = it.base + free*it.e.grow/sum
+				it.main = it.base + free*it.factor/sum
 			} else {
 				it.main = it.base + free*it.e.shrink*it.inner()/sum
 			}
@@ -1294,11 +1299,26 @@ func layoutAbsolute(e *node) {
 // attachTo places c, a child of e whose padding box is pw×ph, attached to
 // a point of the box of the element it is a popover of (AttachTo).
 func attachTo(c, e *node, pw, ph float32) {
+	var policy *TooltipPolicy
+	if c.c.theme != nil {
+		policy = c.c.theme.TooltipPolicy
+	}
+	if policy != nil && c.role == RoleTooltip && c.popover.IsDisabled() {
+		// A caller can disable the anchor or its parent after Tooltip built.
+		journalKeep(c.c.rt, &c.flags)
+		c.Invisible()
+		c.c.rt.tips.shown, c.c.rt.tips.target = 0, 0
+	}
+	at, self := c.attach.anchors()
+	customTip := policy != nil && policy.PreferBelow && c.role == RoleTooltip && at == AnchorBottom && self == AnchorTop
 	var w float32
 	if v, ok := c.width.resolve(pw); ok {
 		w = c.clampW(v, pw)
 	} else {
 		w = fitWidth(c, pw, pw)
+	}
+	if customTip {
+		w = min(w, max(0, c.c.w-2*policy.ViewportInset))
 	}
 	var h float32
 	if v, ok := c.height.resolve(ph); ok {
@@ -1343,6 +1363,18 @@ func attachedAt(c, e *node, t Rect, pw, ph, w, h float32) (x, y float32) {
 	edge := c.windowEdge()
 	x, fx := alongTarget(t.X, t.W, ax, sx, w, c.m(3)-c.m(1), c.c.w, edge)
 	y, fy := alongTarget(t.Y, t.H, ay, sy, h, c.m(0)-c.m(2), c.c.h, edge)
+	if policy := c.c.theme.TooltipPolicy; policy != nil && policy.PreferBelow && c.role == RoleTooltip {
+		at, self := c.attach.anchors()
+		if at == AnchorBottom && self == AnchorTop {
+			inset := policy.ViewportInset
+			x = max(inset, min(t.X+(t.W-w)/2, c.c.w-w-inset))
+			y = t.Y + t.H + policy.Gap
+			if t.Y+t.H+h+inset > c.c.h {
+				y = t.Y - h - policy.Gap
+			}
+			y = max(inset, y)
+		}
+	}
 	c.placed, c.flips = c.attach.flipped(fx, fy), 0
 	if fx {
 		c.flips |= flipAcross

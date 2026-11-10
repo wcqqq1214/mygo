@@ -294,6 +294,9 @@ type layoutStyle struct {
 	row                  bool
 	wrap                 bool
 	reverse, wrapReverse bool
+	// growWithParentWidth lets a compound control's input fill a width
+	// the app sets, while keeping its natural size when merely stretched.
+	growWithParentWidth bool
 	// dir is the element's direction (dirRTL, dirSet), and logical which
 	// of its horizontal edges were set by their start or end
 	// (direction.go).
@@ -700,6 +703,9 @@ type node struct {
 	// serial is the order the pass made the element in: of overlays, the
 	// one made last shows on top.
 	serial int32
+	// focusPosition is assigned after layout, including deferred list rows.
+	// It does not affect overlay stacking or hit testing.
+	focusPosition int32
 }
 
 // measure is the height of an element at a width (naturalHeight).
@@ -2016,6 +2022,18 @@ func (e *node) hasState() bool {
 
 // Focusable lets the element take the keyboard focus, by a click or Tab.
 func (e *node) Focusable() *node { e.flags |= flagFocusable; return e }
+
+// Inert keeps the element and its children visible without pointer, keyboard,
+// or accessibility interaction. Unlike Disabled, it does not dim the content.
+// It also covers embedded web views so they cannot take native input.
+func (e *node) Inert(inert bool) *node {
+	if inert {
+		e.flags |= flagInert
+	} else {
+		e.flags &^= flagInert
+	}
+	return e
+}
 
 // TabStop makes the element focusable, and sets whether Tab and Shift+Tab
 // stop at it, as they do at a Focusable element. One that is no tab stop

@@ -8,6 +8,7 @@
   "delete": "Delete",
   "selectAll": "Select All",
   "find": "Find",
+  "searching": "Searching…",
   "search": "Search",
   "clear": "Clear",
   "removeToken": "Remove {token}",

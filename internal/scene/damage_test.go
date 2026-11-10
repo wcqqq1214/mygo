@@ -2,6 +2,7 @@ package scene
 
 import (
 	"image"
+	"slices"
 	"testing"
 )
 
@@ -118,5 +119,83 @@ func TestDamageOfMaskedClip(t *testing.T) {
 	img.Changed()
 	if damage, ok := d.Diff(build(128)); !ok || len(damage) != 1 || !image.Rect(60, 60, 64, 64).In(damage[0]) {
 		t.Errorf("the image changed: damage %v, %v", damage, ok)
+	}
+}
+
+func damageClipScene(groups int, transformed bool) *Scene {
+	s := &Scene{Width: 200, Height: 200}
+	for range groups {
+		fill := Op{Kind: OpFill, Rect: Rect{X: 50, Y: 50, W: 10, H: 10}, Color: Color{G: 255, A: 255}}
+		if transformed {
+			fill.Transform = Scaling(2, 2)
+		}
+		s.Ops = append(s.Ops,
+			Op{Kind: OpPushClip, Rect: Rect{W: 160, H: 160}, Radii: Uniform(8)},
+			Op{Kind: OpFill, Rect: Rect{X: 10, Y: 10, W: 20, H: 20}, Color: Color{R: 255, A: 255}},
+			fill, Op{Kind: OpPopClip})
+	}
+	return s
+}
+
+func TestDamageEnclosingFlagsReuse(t *testing.T) {
+	var d Differ
+	var previous *Scene
+	for frame, tc := range []struct {
+		groups      int
+		transformed bool
+	}{
+		{0, false}, {1, true}, {16, true}, {16, true}, {16, false},
+		{16, true}, {16, true}, {1, false}, {1, false},
+		{16, false}, {16, false}, {0, false}, {0, false}, {16, false},
+	} {
+		s := damageClipScene(tc.groups, tc.transformed)
+		capacity := cap(d.encloses2)
+		var backing *bool
+		if capacity > 0 {
+			backing = &d.encloses2[:capacity][0]
+		}
+		got, ok := d.Diff(s)
+		// A fresh differ has no flags left over from earlier frames.
+		var fresh Differ
+		if previous != nil {
+			fresh.Diff(previous)
+			fresh.Remember(previous)
+		}
+		want, wantOK := fresh.Diff(s)
+		if ok != wantOK || !slices.Equal(got, want) {
+			t.Fatalf("frame %d: reused flags changed damage: %v, %v; want %v, %v", frame, got, ok, want, wantOK)
+		}
+		flags := make([]bool, len(s.Ops))
+		for i := 0; i < len(flags); i += 4 {
+			flags[i] = tc.transformed
+		}
+		if !slices.Equal(d.encloses2, flags) {
+			t.Fatalf("frame %d: enclosing flags %v, want %v", frame, d.encloses2, flags)
+		}
+		if len(s.Ops) <= capacity {
+			if cap(d.encloses2) != capacity || capacity > 0 && &d.encloses2[:capacity][0] != backing {
+				t.Fatalf("frame %d: flags did not reuse sufficient capacity", frame)
+			}
+		}
+		d.Remember(s)
+		if !slices.Equal(d.encloses, flags) {
+			t.Fatalf("frame %d: Remember did not preserve the new enclosing flags", frame)
+		}
+		previous = s
+	}
+}
+
+func TestDamageSteadyAllocs(t *testing.T) {
+	s := damageClipScene(64, true)
+	var d Differ
+	frame := func() {
+		d.Diff(s)
+		d.Remember(s)
+	}
+	// Both flag buffers, swapped by Remember, have enough capacity.
+	frame()
+	frame()
+	if allocs := testing.AllocsPerRun(100, frame); allocs != 0 {
+		t.Fatalf("a steady damage comparison allocates %v times, want 0", allocs)
 	}
 }

@@ -168,6 +168,20 @@ func (msgs Messages) Find() string {
 	return Catalog.Format(msgs.locale, "find", nil)
 }
 
+// Searching says "Searching…"
+// in the language the app shows.
+//
+// Status of a find bar while asynchronous search is running.
+func Searching() string { return In(i18n.Locale()).Searching() }
+
+// Searching says "Searching…"
+// in the language of msgs.
+//
+// Status of a find bar while asynchronous search is running.
+func (msgs Messages) Searching() string {
+	return Catalog.Format(msgs.locale, "searching", nil)
+}
+
 // Search says "Search"
 // in the language the app shows.
 //
