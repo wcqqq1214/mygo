@@ -1193,6 +1193,44 @@ func (r *Renderer) prepare(s *scene.Scene) (cb id, built *scene.Scene, err error
 	return cb, built, nil
 }
 
+// canvasWide uses the formats of children prepared earlier by EachCanvas.
+// Inspect only immediate references, so retained chains do not repeatedly walk
+// their descendants. Cycles have no child-first order; use the full detection
+// when a child is not ready in this frame, or the scene has its own redraw list.
+func (r *Renderer) canvasWide(s *scene.Scene) bool {
+	if len(s.Wide) > 0 {
+		return true
+	}
+	if len(s.Canvases) > 0 {
+		return s.HasWideColors()
+	}
+	unready := false
+	wide := func(img *scene.Image) bool {
+		if img == nil || img.Scene == nil {
+			return false
+		}
+		t := r.canvases[img.ID()]
+		if t == nil || t.lastFrame != r.frame {
+			unready = true
+			return false
+		}
+		return t.format == pixelFormatRGBA16Float
+	}
+	for i := range s.Ops {
+		if op := &s.Ops[i]; op.Kind == scene.OpImage && wide(op.Image) {
+			return true
+		}
+	}
+	for i := range s.Effects {
+		for _, img := range s.Effects[i].Images {
+			if wide(img) {
+				return true
+			}
+		}
+	}
+	return unready && s.HasWideColors()
+}
+
 // drawCanvas draws a canvas into its texture, unless it holds its version
 // already.
 func (r *Renderer) drawCanvas(cb id, c *scene.Image) error {
@@ -1204,11 +1242,12 @@ func (r *Renderer) drawCanvas(cb id, c *scene.Image) error {
 		t = &canvasTexture{canvas: weak.Make(c)}
 		r.canvases[c.ID()] = t
 	}
-	t.lastFrame = r.frame
 	format, formatIndex := uint(pixelFormatBGRA8Unorm), 0
-	if r.cur.format == pixelFormatRGBA16Float && c.Scene.HasWideColors() {
+	if r.cur.format == pixelFormatRGBA16Float && r.canvasWide(c.Scene) {
 		format, formatIndex = pixelFormatRGBA16Float, 1
 	}
+	// Mark ready only after inspecting children, including a possible self-reference.
+	t.lastFrame = r.frame
 	if t.tex != 0 && t.w == c.W && t.h == c.H && t.ver == c.Version() && t.format == format {
 		return nil
 	}
