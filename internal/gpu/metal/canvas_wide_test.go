@@ -66,6 +66,60 @@ func TestCanvasPreservesWidePixelsAndSRGBFallback(t *testing.T) {
 	}
 }
 
+func TestCanvasImageBlurPreservesWidePixels(t *testing.T) {
+	r, err := newRenderer()
+	if err != nil {
+		unavailable(t, err)
+	}
+	defer r.Release()
+	if !r.SetWide(true) {
+		t.Fatal(r.wideErr)
+	}
+
+	const size = 64
+	rect := scene.Rect{W: size, H: size}
+	wide := [4]float32{-.25, 1.1, -.1, 1}
+	canvas := scene.NewCanvas(size, size)
+	canvas.Scene.Wide = []scene.WideColors{{Color: wide, Set: scene.WideColor}}
+	canvas.Scene.Ops = []scene.Op{{
+		Kind: scene.OpFill, Rect: rect, Wide: 1,
+		Color: scene.Color{R: 30, G: 230, B: 20, A: 255},
+	}}
+	frame := &scene.Scene{Width: size, Height: size, Ops: []scene.Op{{
+		Kind: scene.OpImage, Rect: rect, Src: rect, Image: canvas,
+	}}}
+
+	const center = (size/2)*size + size/2
+	for _, blur := range []float32{0, 2} {
+		frame.Ops[0].Blur = blur
+		raw := renderRaw(t, r, frame, true)
+		var pixel [4]float32
+		for i := range pixel {
+			pixel[i] = half(binary.LittleEndian.Uint16(raw[center*8+i*2:]))
+		}
+		t.Logf("float16 RGBA center, Blur %g: %v", blur, pixel)
+		for i, want := range wide {
+			if !(math.Abs(float64(pixel[i]-want)) <= .005) {
+				t.Errorf("float16 RGBA with Blur %g: got %v, want %v", blur, pixel, wide)
+				break
+			}
+		}
+	}
+	for _, blur := range []float32{0, 2} {
+		frame.Ops[0].Blur = blur
+		raw := renderRaw(t, r, frame, false)
+		pixel := [4]byte(raw[center*4 : center*4+4])
+		t.Logf("sRGB BGRA center, Blur %g: %v", blur, pixel)
+		want := [4]byte{20, 230, 30, 255}
+		for i, v := range want {
+			if d := int(pixel[i]) - int(v); d < -1 || d > 1 {
+				t.Errorf("sRGB BGRA with Blur %g: got %v, want %v", blur, pixel, want)
+				break
+			}
+		}
+	}
+}
+
 // Shared descendants must propagate their current gamut through every ancestor,
 // even if only the leaf changes version. Output changes also invalidate formats.
 func TestCanvasWideSharedDescendants(t *testing.T) {

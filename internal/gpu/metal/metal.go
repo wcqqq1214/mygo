@@ -403,10 +403,14 @@ type formatState struct {
 	// holePipe draws holes (scene.OpHole), taking their coverage away, and
 	// opaquePipe the cores of opaque fills (gpu.Batch.Opaque), without blending.
 	holePipe, opaquePipe id
-	// downPipe and blurPipe draw the passes computing the backdrops of
-	// effects, into the textures of backdrop, the second only along rows.
+	// downPipe and blurPipe compute effect backdrops and blurred images.
 	downPipe, blurPipe id
 	backdrop           [2]texture
+	// blurred holds the image blur outputs, of which usedBlurred are in use
+	// this frame. blurTmp holds the textures the passes go through.
+	blurred     []texture
+	usedBlurred int
+	blurTmp     [2]texture
 	// clear is a texel of the frame's color, cleared to it, which a frame
 	// drawn in part copies over what it redraws (see clearArea).
 	clear id
@@ -473,13 +477,7 @@ type Renderer struct {
 	video  videoState
 	// canvases are the textures canvases are drawn into.
 	canvases map[uint64]*canvasTexture
-	// blurred are the textures of the images the frame draws blurred
-	// (gpu.Builder.BlurredImage), the first used of them, and blurTmp the
-	// textures their passes go through; stopsTex is the texture of the
-	// stops of the scene drawn.
-	blurred  []texture
-	used     int
-	blurTmp  [2]texture
+	// stopsTex is the texture of the stops of the scene drawn.
 	stopsTex id
 	frame    uint64
 	swept    uint64 // the frame of the last sweep
@@ -1170,7 +1168,9 @@ func (r *Renderer) prepare(s *scene.Scene) (cb id, built *scene.Scene, err error
 		return 0, nil, err
 	}
 	r.pipes.fallbacks = 0
-	r.used = 0
+	for i := range r.formats {
+		r.formats[i].usedBlurred = 0
+	}
 	cb = send(r.queue, "commandBuffer")
 	if !r.checked {
 		if err := need(cb, "command buffer", "renderCommandEncoderWithDescriptor:", "commit", "presentDrawable:", "waitUntilScheduled", "waitUntilCompleted", "status", "blitCommandEncoder"); err != nil {
@@ -1607,9 +1607,9 @@ func (r *Renderer) syncStops(d *drawState) error {
 }
 
 // blurImage encodes into cb the passes blurring the area of img that bk
-// says (gpu.Builder.BlurredImage) into a texture of the frame's own, in
-// BGRA8 whatever the frame's format, as internal/raster computes them,
-// and returns it, or 0.
+// says (gpu.Builder.BlurredImage) into a texture of the frame's own. Wide
+// canvases keep their extended components through all passes. Other
+// images use BGRA8, as internal/raster computes them.
 func (r *Renderer) blurImage(cb id, img *scene.Image, bk scene.Backdrop) uintptr {
 	src := id(r.imageTexture(img))
 	w, h := bk.Size()
@@ -1617,31 +1617,34 @@ func (r *Renderer) blurImage(cb id, img *scene.Image, bk scene.Backdrop) uintptr
 	if src == 0 || w <= 0 || h <= 0 {
 		return 0
 	}
+	if img.Scene != nil && r.canvases[img.ID()].format == pixelFormatRGBA16Float {
+		f = &r.formats[1]
+	}
 	if f.downPipe == 0 {
 		if err := r.makePipelines(f); err != nil {
 			return 0
 		}
 	}
-	for i := range r.blurTmp {
-		t := &r.blurTmp[i]
+	for i := range f.blurTmp {
+		t := &f.blurTmp[i]
 		if t.w < w || t.h < h {
 			release(&t.tex)
 			nw, nh := max(w, t.w), max(h, t.h)
-			if t.tex = r.newTexture(nw, nh, pixelFormatBGRA8Unorm, usageRenderTarget|usageShaderRead, nil, 0); t.tex == 0 {
+			if t.tex = r.newTexture(nw, nh, f.format, usageRenderTarget|usageShaderRead, nil, 0); t.tex == 0 {
 				*t = texture{}
 				return 0
 			}
 			t.w, t.h = nw, nh
 		}
 	}
-	if r.used == len(r.blurred) {
-		r.blurred = append(r.blurred, texture{})
+	if f.usedBlurred == len(f.blurred) {
+		f.blurred = append(f.blurred, texture{})
 	}
-	out := &r.blurred[r.used]
-	r.used++
+	out := &f.blurred[f.usedBlurred]
+	f.usedBlurred++
 	if out.tex == 0 || out.w != w || out.h != h {
 		release(&out.tex)
-		if out.tex = r.newTexture(w, h, pixelFormatBGRA8Unorm, usageRenderTarget|usageShaderRead, nil, 0); out.tex == 0 {
+		if out.tex = r.newTexture(w, h, f.format, usageRenderTarget|usageShaderRead, nil, 0); out.tex == 0 {
 			*out = texture{}
 			return 0
 		}
@@ -1652,11 +1655,11 @@ func (r *Renderer) blurImage(cb id, img *scene.Image, bk scene.Backdrop) uintptr
 		r.pass(cb, f.downPipe, src, out.tex, w, h, &p)
 		return uintptr(out.tex)
 	}
-	r.pass(cb, f.downPipe, src, r.blurTmp[0].tex, w, h, &p)
+	r.pass(cb, f.downPipe, src, f.blurTmp[0].tex, w, h, &p)
 	p = gpu.ImageBlurPass(bk, [2]int32{1, 0})
-	r.pass(cb, f.blurPipe, r.blurTmp[0].tex, r.blurTmp[1].tex, w, h, &p)
+	r.pass(cb, f.blurPipe, f.blurTmp[0].tex, f.blurTmp[1].tex, w, h, &p)
 	p = gpu.ImageBlurPass(bk, [2]int32{0, 1})
-	r.pass(cb, f.blurPipe, r.blurTmp[1].tex, out.tex, w, h, &p)
+	r.pass(cb, f.blurPipe, f.blurTmp[1].tex, out.tex, w, h, &p)
 	return uintptr(out.tex)
 }
 
@@ -1997,18 +2000,19 @@ func (r *Renderer) releaseTextures() {
 		delete(r.canvases, key)
 	}
 	r.drawState.release()
-	for i := range r.blurred {
-		release(&r.blurred[i].tex)
-	}
-	r.blurred, r.used = nil, 0
-	for i := range r.blurTmp {
-		release(&r.blurTmp[i].tex)
-		r.blurTmp[i] = texture{}
-	}
 	for i := range r.formats {
-		for j := range r.formats[i].backdrop {
-			release(&r.formats[i].backdrop[j].tex)
-			r.formats[i].backdrop[j] = texture{}
+		f := &r.formats[i]
+		for j := range f.blurred {
+			release(&f.blurred[j].tex)
+		}
+		f.blurred, f.usedBlurred = nil, 0
+		for j := range f.blurTmp {
+			release(&f.blurTmp[j].tex)
+			f.blurTmp[j] = texture{}
+		}
+		for j := range f.backdrop {
+			release(&f.backdrop[j].tex)
+			f.backdrop[j] = texture{}
 		}
 	}
 	r.b.Release()

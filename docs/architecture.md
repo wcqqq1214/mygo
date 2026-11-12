@@ -5107,9 +5107,10 @@ either.
   backdrop bound for the effect. An image drawn blurred goes through the
   same two pipelines before the frame's pass, which the builder asks for
   as it meets it (`Builder.BlurredImage`), from the image's texture into
-  one of the frame's own, in BGRA8 whatever the frame's format, reading
-  what lies beyond the image as transparent (`gpu.PassClear`); OpenGL
-  reads canvases flipped and uploaded images not (`gpu.PassUnflipped`).
+  one of the frame's own, in BGRA8 or, for a wide canvas on Metal, in
+  RGBA16Float through every pass. The passes read what lies beyond the
+  image as transparent (`gpu.PassClear`); OpenGL reads canvases flipped
+  and uploaded images not (`gpu.PassUnflipped`).
   The stops of gradients travel in a texture of 32-bit floats the
   builder fills each frame (`Builder.Stops`, two texels a stop: its
   color, then its place and its color in Oklab), bound to texture 9 (t10
