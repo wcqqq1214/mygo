@@ -200,7 +200,7 @@ func sliderInput(n *node) {
 		}
 	}
 	st, rt := n.st, n.c.rt
-	if st.pressedPrimary() && (st.pressPending || st.dragX != 0 || st.dragY != 0) {
+	if st.pressedPrimary() && (st.pressPending || st.pointerMoved) {
 		x, y := st.local(st.pointer(rt))
 		x += st.x
 		y += st.y

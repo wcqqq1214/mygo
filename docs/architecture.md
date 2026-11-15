@@ -2600,6 +2600,14 @@ pass; it is not carried into a later rebuild. `OnChange` and `OnSubmit` run afte
 input, before rebuilding. Notices are cleared before another pass so an
 edit cannot be reported again on a fresh local binding. Callback actions
 consume input once and rebuild before paint.
+Sliders keep keyboard increments separate from explicit snapping steps. A
+continuous slider adds a hundredth of its range to its current value without
+rounding. Pointer input applies only on a pending press or movement. The state
+keeps `pointerMoved` until `forgetInput`, independently of accumulated drag
+distance: movement away and back between frames still counts, as does the first
+move after leaving the window. A release keeps that movement pending until the
+next build reads its final coordinates.
+
 The private render tree uses `node` and `context`; `internal/uigen` generates
 the checked public facade. `FocusBind` binds desired focus to app data; `FocusedValue` reads actual focus independently of a hidden
 control's pending request.

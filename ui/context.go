@@ -809,6 +809,7 @@ type state struct {
 	releaseVX, releaseVY float32
 	releaseWX, releaseWY float32
 	pressPending         bool // the press began since the last build pass
+	pointerMoved         bool
 	// releaseLater is what the release of the press gives the element,
 	// kept when it came with moves no pass had read for the pass that
 	// reads them to apply as it ends (forgetInput): where the pointer let

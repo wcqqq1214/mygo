@@ -151,3 +151,33 @@ func TestSliderHeldInputOptions(t *testing.T) {
 		})
 	}
 }
+
+func TestSliderCapturedPointerMovement(t *testing.T) {
+	for _, sequence := range []string{"leave-and-move", "move-away-and-back", "move-away-back-and-release"} {
+		t.Run(sequence, func(t *testing.T) {
+			value := 0.0
+			tt := coreNewTester(func(c *context) {
+				coreSliderBase(c, &value, 0, 100).Size(200, 100).Label("slider")
+			}, 240, 160)
+			tt.Press(50, 50)
+			tt.Key(0, KeyRight)
+			want := 25.0
+			if sequence == "leave-and-move" {
+				tt.send(platform.SurfaceEvent{Kind: platform.PointerLeave})
+				tt.Move(150, 50)
+				want = 75
+			} else {
+				tt.rt.event(platform.SurfaceEvent{Kind: platform.PointerMove, X: 80, Y: 50})
+				tt.rt.event(platform.SurfaceEvent{Kind: platform.PointerMove, X: 50, Y: 50})
+				if sequence == "move-away-back-and-release" {
+					tt.rt.event(platform.SurfaceEvent{Kind: platform.PointerUp, X: 50, Y: 50})
+					tt.rt.event(platform.SurfaceEvent{Kind: platform.PointerMove, X: 150, Y: 50})
+				}
+			}
+			tt.Frame()
+			if value != want {
+				t.Fatalf("pointer movement sets %v, want %v", value, want)
+			}
+		})
+	}
+}
