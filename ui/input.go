@@ -433,6 +433,12 @@ func (rt *engine) pointerMove(x, y float32) {
 		rt.requestFrame()
 		return
 	}
+	if s := rt.pressed; s != nil && (x != rt.pointerX || y != rt.pointerY) {
+		s.pointerMoved = true
+		if s.flags&(flagTrackPointer|flagDraggable) != 0 {
+			rt.requestFrame()
+		}
+	}
 	if rt.pressed != nil && rt.pointerIn {
 		dx, dy := rt.pressed.vector(rt.pointerX, rt.pointerY, x-rt.pointerX, y-rt.pointerY)
 		rt.pressed.dragX += dx
@@ -805,7 +811,7 @@ func (rt *engine) pointerUp(button, clicks int, canceled bool) {
 	// with the element still pressed, and the pass that reads them applies
 	// the release as it ends (forgetInput); with none waiting, it applies
 	// now.
-	if s.dragX == 0 && s.dragY == 0 {
+	if !s.pointerMoved && s.dragX == 0 && s.dragY == 0 {
 		rt.applyRelease(s)
 	} else {
 		rt.pressEnded = s

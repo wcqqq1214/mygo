@@ -110,6 +110,15 @@ Tomato uses the upstream `Element.ScrollbarAxes(horizontal, vertical)` implement
 
 ## Regression tests
 
+Continuous sliders keep fractional values when stepping with the keyboard or
+accessibility actions. Pointer input updates a slider only on a new press or
+movement, so holding the pointer does not undo a keyboard adjustment on the
+next build. Explicit steps still snap to their grid. These fixes are covered by
+`TestSliderContinuousKeyboard`, `TestSliderHeldKeyboardSurvivesFrames` and
+`TestSliderHeldInputOptions` in `ui/slider_continuous_test.go`.
+`TestSliderCapturedPointerMovement` covers movement after leaving the window and
+coalesced movement back to the same position, including a queued release.
+
 `ui/inert_test.go`, `ui/color_reversal_test.go`, `ui/disabled_dimming_test.go`,
 `ui/tooltip_policy_test.go`, `ui/focus_tree_order_test.go`,
 `ui/access_snapshot_test.go`, `ui/scrollbar_visibility_test.go`,
