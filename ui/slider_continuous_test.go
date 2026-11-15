@@ -164,7 +164,11 @@ func TestSliderCapturedPointerMovement(t *testing.T) {
 			want := 25.0
 			if sequence == "leave-and-move" {
 				tt.send(platform.SurfaceEvent{Kind: platform.PointerLeave})
-				tt.Move(150, 50)
+				tt.h.requested.Store(false)
+				tt.rt.event(platform.SurfaceEvent{Kind: platform.PointerMove, X: 150, Y: 50})
+				if !tt.h.requested.Load() {
+					t.Fatal("captured movement after leaving the window did not request a frame")
+				}
 				want = 75
 			} else {
 				tt.rt.event(platform.SurfaceEvent{Kind: platform.PointerMove, X: 80, Y: 50})

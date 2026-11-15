@@ -435,7 +435,7 @@ func (rt *engine) pointerMove(x, y float32) {
 	}
 	if s := rt.pressed; s != nil && (x != rt.pointerX || y != rt.pointerY) {
 		s.pointerMoved = true
-		if s.flags&flagTrackPointer != 0 {
+		if s.flags&(flagTrackPointer|flagDraggable) != 0 {
 			rt.requestFrame()
 		}
 	}
