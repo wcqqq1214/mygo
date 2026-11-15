@@ -200,7 +200,7 @@ func sliderInput(n *node) {
 		}
 	}
 	st, rt := n.st, n.c.rt
-	if st.pressedPrimary() {
+	if st.pressedPrimary() && (st.pressPending || st.dragX != 0 || st.dragY != 0) {
 		x, y := st.local(st.pointer(rt))
 		x += st.x
 		y += st.y
@@ -216,8 +216,9 @@ func sliderInput(n *node) {
 			set(b.lo + float64(max(0, min(1, f)))*(b.hi-b.lo))
 		}
 	}
-	if step <= 0 {
-		step = (b.hi - b.lo) / 100
+	keyStep := step
+	if keyStep <= 0 {
+		keyStep = (b.hi - b.lo) / 100
 	}
 	// The arrows move the knob the way they point.
 	back, forth := KeyLeft, KeyRight
@@ -226,13 +227,13 @@ func sliderInput(n *node) {
 	}
 	switch {
 	case n.Shortcut(0, back), n.Shortcut(0, KeyDown):
-		set(*b.value - step)
+		set(*b.value - keyStep)
 	case n.Shortcut(0, forth), n.Shortcut(0, KeyUp):
-		set(*b.value + step)
+		set(*b.value + keyStep)
 	case n.Shortcut(0, KeyPageDown):
-		set(*b.value - max(step, (b.hi-b.lo)/10))
+		set(*b.value - max(keyStep, (b.hi-b.lo)/10))
 	case n.Shortcut(0, KeyPageUp):
-		set(*b.value + max(step, (b.hi-b.lo)/10))
+		set(*b.value + max(keyStep, (b.hi-b.lo)/10))
 	case n.Shortcut(0, KeyHome):
 		set(b.lo)
 	case n.Shortcut(0, KeyEnd):
